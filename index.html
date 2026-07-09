@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ビブグルマンマップ — 日本のミシュラン掲載店を地図で探す</title>
+    <meta
+      name="description"
+      content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23bb1f2f'/><text x='50' y='66' font-size='46' text-anchor='middle' fill='%23faf6ec' font-family='serif' font-weight='bold'>ビ</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <aside class="sidebar" id="sidebar">
+        <header class="masthead">
+          <div class="seal">ビブ</div>
+          <div>
+            <h1>ビブグルマンマップ</h1>
+            <p class="tagline">日本のミシュラン掲載店をひと目で</p>
+          </div>
+        </header>
+
+        <section class="panel" style="--stagger: 1">
+          <h2>区分</h2>
+          <div class="chips" id="award-chips"></div>
+        </section>
+
+        <section class="panel" style="--stagger: 2">
+          <h2>掲載年</h2>
+          <div class="year-row">
+            <input type="range" id="year-slider" step="1" />
+            <output class="year-display" id="year-display"></output>
+          </div>
+          <p class="hint hidden" id="year-hint">
+            過去年はアーカイブ復元データのため掲載の欠損があります
+          </p>
+        </section>
+
+        <section class="panel" style="--stagger: 3">
+          <h2>エリア</h2>
+          <div class="chips" id="area-chips"></div>
+        </section>
+
+        <section class="panel" style="--stagger: 4">
+          <h2>カテゴリ</h2>
+          <div class="chips" id="category-chips"></div>
+        </section>
+
+        <section class="panel" style="--stagger: 5">
+          <h2>現在地から探す</h2>
+          <div class="locate-row">
+            <button id="locate-btn" type="button">📍 現在地を取得</button>
+            <select id="walk-select" disabled>
+              <option value="">距離指定なし</option>
+              <option value="5">徒歩5分圏内</option>
+              <option value="10">徒歩10分圏内</option>
+              <option value="15" selected>徒歩15分圏内</option>
+              <option value="20">徒歩20分圏内</option>
+              <option value="30">徒歩30分圏内</option>
+              <option value="60">徒歩60分圏内</option>
+            </select>
+          </div>
+          <p class="hint hidden" id="locate-status"></p>
+        </section>
+
+        <section class="panel" style="--stagger: 6">
+          <h2>店名・住所で検索</h2>
+          <input type="search" id="query-input" placeholder="例: 鮨 / フレンチ / Shibuya" />
+        </section>
+
+        <section class="results" style="--stagger: 7">
+          <div class="results-head">
+            <h2>検索結果</h2>
+            <span class="count" id="result-count"></span>
+          </div>
+          <ul class="result-list" id="result-list"></ul>
+        </section>
+
+        <footer class="credits">
+          データ: <a href="https://github.com/ngshiheng/michelin-my-maps" target="_blank" rel="noopener">michelin-my-maps</a>（MIT）
+          / 徒歩分数は直線距離×80m/分の近似です。<br />
+          全軒数には過去年のみ掲載の店（閉店・掲載外れ等）を含みます。住所検索はローマ字表記（例: Shibuya）に対応しています。<br />
+          本サイトはミシュランガイド非公式のファンメイドです。
+        </footer>
+      </aside>
+
+      <main class="map-wrap">
+        <div id="map"></div>
+        <div class="legend" id="legend"></div>
+        <button class="mobile-toggle" id="mobile-toggle" type="button">検索・絞り込み</button>
+      </main>
+
+      <div class="loading" id="loading"><div class="seal seal-lg">ビブ</div><p>掲載店を読み込み中…</p></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
