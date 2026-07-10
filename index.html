@@ -8,7 +8,8 @@
       name="description"
       content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"
     />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23bb1f2f'/><text x='50' y='66' font-size='46' text-anchor='middle' fill='%23faf6ec' font-family='serif' font-weight='bold'>ミ</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,7 +21,7 @@
     <div id="app">
       <aside class="sidebar" id="sidebar">
         <header class="masthead">
-          <div class="seal">ミシュ</div>
+          <img src="icon.svg" alt="" class="mark" />
           <div>
             <h1 data-i18n="appTitle">ミシュマップ</h1>
           </div>
@@ -89,7 +90,7 @@
         <button class="mobile-toggle" id="mobile-toggle" type="button">検索・絞り込み</button>
       </main>
 
-      <div class="loading" id="loading"><div class="seal seal-lg">ミシュ</div><p data-i18n="loading">掲載店を読み込み中…</p></div>
+      <div class="loading" id="loading"><img src="icon.svg" alt="" class="mark mark-lg" /><p data-i18n="loading">掲載店を読み込み中…</p></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -61,22 +61,11 @@ body {
   background: linear-gradient(180deg, rgba(187, 31, 47, 0.06), transparent 70%);
 }
 
-.seal {
-  width: 52px;
-  height: 52px;
+.mark {
+  width: 46px;
+  height: auto;
   flex: none;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #d3313f, var(--red) 55%, var(--red-deep));
-  color: #faf3e3;
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 13.5px;
-  display: grid;
-  place-items: center;
-  box-shadow:
-    0 2px 8px rgba(143, 22, 34, 0.35),
-    inset 0 0 0 2px rgba(250, 243, 227, 0.35);
-  letter-spacing: 0.02em;
+  filter: drop-shadow(0 2px 5px rgba(143, 22, 34, 0.35));
 }
 
 .masthead h1 {
@@ -619,17 +608,15 @@ input[type="range"]::-moz-range-thumb {
   pointer-events: none;
 }
 
-.seal-lg {
-  width: 76px;
-  height: 76px;
-  font-size: 20px;
+.mark-lg {
+  width: 84px;
   animation: pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes pulse {
   50% {
     transform: scale(1.07);
-    box-shadow: 0 4px 22px rgba(143, 22, 34, 0.45);
+    filter: drop-shadow(0 4px 16px rgba(143, 22, 34, 0.5));
   }
 }
 

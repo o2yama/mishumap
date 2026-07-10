@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110">
+  <defs>
+    <path id="star" d="M0,-1 L0.2246,-0.309 L0.951,-0.309 L0.363,0.118 L0.588,0.809 L0,0.382 L-0.588,0.809 L-0.363,0.118 L-0.951,-0.309 L-0.2246,-0.309 Z"/>
+    <radialGradient id="rg" cx="38%" cy="24%" r="90%">
+      <stop offset="0%" stop-color="#d3313f"/>
+      <stop offset="55%" stop-color="#bb1f2f"/>
+      <stop offset="100%" stop-color="#821220"/>
+    </radialGradient>
+    <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0d48a"/>
+      <stop offset="55%" stop-color="#d9a441"/>
+      <stop offset="100%" stop-color="#a8791f"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 6 L88 16 V50 C88 74 72 92 50 102 C28 92 12 74 12 50 V16 Z" fill="url(#rg)"/>
+  <path d="M50 6 L88 16 V50 C88 74 72 92 50 102 C28 92 12 74 12 50 V16 Z" fill="none" stroke="#faf3e3" stroke-width="3.4"/>
+  <path d="M50 12.5 L82.5 21 V49.5 C82.5 70.5 68.5 86.5 50 95.5 C31.5 86.5 17.5 70.5 17.5 49.5 V21 Z" fill="none" stroke="#faf3e3" stroke-width="1.2" opacity="0.9"/>
+  <use href="#star" transform="translate(29.5,53) scale(9.5)" fill="#faf3e3"/>
+  <use href="#star" transform="translate(50,42) scale(13)" fill="url(#gg)"/>
+  <use href="#star" transform="translate(70.5,53) scale(9.5)" fill="#faf3e3"/>
+  <path d="M30 72 H70" stroke="#f0d48a" stroke-width="2" stroke-dasharray="2.6 3.4" stroke-linecap="round"/>
+</svg>
