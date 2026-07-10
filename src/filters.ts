@@ -67,12 +67,13 @@ export function matchesFilters(r: Restaurant, f: FilterState): boolean {
   return true;
 }
 
+// リストの並び順。区分チップの表示順（main.ts AWARD_CHIP_ORDER）と揃える
 const AWARD_ORDER: Record<string, number> = {
-  "Bib Gourmand": 0, // 本アプリの主役なので先頭
-  "3 Stars": 1,
-  "2 Stars": 2,
-  "1 Star": 3,
-  "Selected Restaurants": 4,
+  "3 Stars": 0,
+  "2 Stars": 1,
+  "1 Star": 2,
+  "Selected Restaurants": 3,
+  "Bib Gourmand": 4,
 };
 
 export function applyFilters(all: Restaurant[], f: FilterState): Restaurant[] {
