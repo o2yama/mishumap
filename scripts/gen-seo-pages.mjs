@@ -11,6 +11,7 @@ const data = JSON.parse(readFileSync(join(root, "public/data/restaurants.json"),
 
 const SITE = "https://mishumap.com";
 const YEAR = data.latestYear;
+const PREV_YEAR = YEAR - 1;
 
 const AREAS = [
   { id: "Tokyo", slug: "tokyo", ja: "東京", en: "Tokyo" },
@@ -112,6 +113,21 @@ const STR = {
     relAreas: "エリア別",
     relAwards: (area) => `${area}の区分別`,
     toApp: "地図アプリで開く",
+    changesLink: (area) => `${area}の${YEAR}年版の変動（新規・掲載外れ）`,
+    chTitle: (area, total) => `ミシュランガイド${area}${YEAR} 新規掲載・昇格・掲載外れ まとめ【全${total}軒の変動】`,
+    chMeta: (area, nNew, nUp, nDrop) =>
+      `ミシュランガイド${YEAR}年版で${area}に新しく掲載された店（${nNew}軒）、区分が変わった店（${nUp}軒）、掲載がなくなった店（${nDrop}軒）を年次データの比較から一覧化。`,
+    chLead: (area, nNew, nCh, nDrop) =>
+      `ミシュランガイド${area}の${PREV_YEAR}年版と${YEAR}年版を比較すると、新規掲載${nNew}軒・区分の変動${nCh}軒・掲載外れ${nDrop}軒でした。各表の店名から公式ページ（掲載外れ店はGoogleマップ）に飛べます。`,
+    chDisclaimer: `本ページの差分は公式発表ではなく、本サイトが保有する年次データ（Webアーカイブ復元を含む）の機械的な比較によるものです。過去年データには欠損があるため、「新規掲載」には実際には以前から掲載されていた店が含まれる可能性があります。「掲載外れ」には閉店・移転・休業による除外も含まれます。正確な情報はミシュラン公式をご確認ください。`,
+    chNew: (n) => `新規掲載（${n}軒）`,
+    chChanged: (n) => `区分が変わった店（${n}軒）`,
+    chDropped: (n) => `掲載がなくなった店（${n}軒）`,
+    chNone: "該当なし",
+    chPrevAward: `${PREV_YEAR}年版の区分`,
+    chArrow: (p, c) => `${p} → ${c}`,
+    chUp: "昇格",
+    chDown: "変更",
     footer: `データ出典: <a href="https://github.com/ngshiheng/michelin-my-maps" rel="noopener">michelin-my-maps</a>（MIT License）。本サイトはミシュランガイド非公式のファンメイドです。掲載内容は${YEAR}年版時点の情報で、最新の掲載状況は公式サイトをご確認ください。`,
     all: "すべての掲載店",
   },
@@ -146,10 +162,49 @@ const STR = {
     relAreas: "By area",
     relAwards: (area) => `${area} by distinction`,
     toApp: "Open the map app",
+    changesLink: (area) => `${area} ${YEAR} guide changes (new & removed)`,
+    chTitle: (area, total) => `MICHELIN Guide ${area} ${YEAR}: New, Promoted & Removed Restaurants (${total} changes)`,
+    chMeta: (area, nNew, nUp, nDrop) =>
+      `${nNew} newly listed, ${nUp} distinction changes, and ${nDrop} removed restaurants in the ${YEAR} MICHELIN Guide for ${area}, compiled from year-over-year data.`,
+    chLead: (area, nNew, nCh, nDrop) =>
+      `Comparing the ${PREV_YEAR} and ${YEAR} MICHELIN Guide data for ${area}: ${nNew} new listings, ${nCh} distinction changes, and ${nDrop} removals. Restaurant names link to the official guide page (removed restaurants link to Google Maps).`,
+    chDisclaimer: `These changes are compiled by mechanically comparing this site's year-over-year data (partly restored from web archives), not from official announcements. Because past-year data has gaps, some "new" restaurants may have been listed earlier. "Removed" includes closures and relocations. Check the official MICHELIN Guide for authoritative information.`,
+    chNew: (n) => `Newly listed (${n})`,
+    chChanged: (n) => `Distinction changes (${n})`,
+    chDropped: (n) => `No longer listed (${n})`,
+    chNone: "None",
+    chPrevAward: `${PREV_YEAR} distinction`,
+    chArrow: (p, c) => `${p} → ${c}`,
+    chUp: "Promoted",
+    chDown: "Changed",
     footer: `Data: <a href="https://github.com/ngshiheng/michelin-my-maps" rel="noopener">michelin-my-maps</a> (MIT License). This is an unofficial fan-made site, not affiliated with the MICHELIN Guide. Listings reflect the ${YEAR} guide; check the official site for the latest status.`,
     all: "All listed restaurants",
   },
 };
+
+const AWARD_RANK = { "3 Stars": 5, "2 Stars": 4, "1 Star": 3, "Bib Gourmand": 2, "Selected Restaurants": 1 };
+const awardName = (id, lang) => AWARDS.find((a) => a.id === id)?.[lang] ?? id;
+
+/**
+ * 前年版→最新版の変動。
+ * 新規 = 過去のどの年にも記録がない店（過去年データの欠損により偽陽性があり得る→ページ内で明示）
+ * 掲載外れ = 最後の掲載記録が前年の店（最新版は完全データなので信頼できる）
+ */
+function computeDiff(areaId) {
+  const rs = data.restaurants.filter((r) => r.area === areaId);
+  const cur = (r) => r.awards[String(YEAR)];
+  const prev = (r) => r.awards[String(PREV_YEAR)];
+  const byName = (a, b) => a.name.localeCompare(b.name, "ja");
+  return {
+    newcomers: rs.filter((r) => cur(r) && !Object.keys(r.awards).some((y) => Number(y) < YEAR)).sort(byName),
+    changed: rs
+      .filter((r) => cur(r) && prev(r) && cur(r) !== prev(r))
+      .sort((a, b) => AWARD_RANK[cur(b)] - AWARD_RANK[cur(a)] || byName(a, b)),
+    dropped: rs.filter((r) => Object.keys(r.awards).length && Math.max(...Object.keys(r.awards).map(Number)) === PREV_YEAR).sort(byName),
+  };
+}
+
+const gmapsUrl = (r) => `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`;
 
 function pageUrl(lang, areaSlug, awardSlug) {
   return `${SITE}/${lang}/${areaSlug}/${awardSlug ? awardSlug + "/" : ""}`;
@@ -264,7 +319,112 @@ ${faqs.map(([q, a]) => `<dt>${esc(q)}</dt><dd>${esc(a)}</dd>`).join("\n")}
 <nav class="rel">
 <div>${esc(s.relAreas)}: ${relAreaLinks}</div>
 <div>${esc(s.relAwards(areaName))}: ${relAwardLinks}</div>
+<div><a href="/${lang}/${area.slug}/changes-${YEAR}/">${esc(s.changesLink(areaName))}</a></div>
 <div><a href="${esc(appLink(lang, area.id, award?.slug))}">${esc(s.toApp)}</a></div>
+</nav>
+<footer>${s.footer}</footer>
+</div>
+</body>
+</html>
+`;
+}
+
+function renderChangesPage({ lang, area, diff }) {
+  const s = STR[lang];
+  const areaName = area[lang];
+  const { newcomers, changed, dropped } = diff;
+  const total = newcomers.length + changed.length + dropped.length;
+  const title = s.chTitle(areaName, total);
+  const self = `${SITE}/${lang}/${area.slug}/changes-${YEAR}/`;
+
+  const badge = (id) => `<span class="badge">${esc(awardName(id, lang))}</span>`;
+  const cur = (r) => r.awards[String(YEAR)];
+  const prev = (r) => r.awards[String(PREV_YEAR)];
+
+  const newRows = newcomers
+    .map(
+      (r) =>
+        `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${badge(cur(r))}</td><td>${esc(r.cuisine)}</td><td>${esc(r.address)}</td></tr>`,
+    )
+    .join("\n");
+
+  const changedRows = changed
+    .map((r) => {
+      const upDown = AWARD_RANK[cur(r)] > AWARD_RANK[prev(r)] ? `↗ ${s.chUp}` : `↘ ${s.chDown}`;
+      return `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${esc(
+        s.chArrow(awardName(prev(r), lang), awardName(cur(r), lang)),
+      )}（${esc(upDown)}）</td><td>${esc(r.cuisine)}</td></tr>`;
+    })
+    .join("\n");
+
+  const droppedRows = dropped
+    .map(
+      (r) =>
+        `<tr><td><a href="${esc(gmapsUrl(r))}" rel="noopener">${esc(r.name)}</a></td><td>${badge(prev(r) ?? Object.entries(r.awards).sort((a, b) => Number(b[0]) - Number(a[0]))[0][1])}</td><td>${esc(r.cuisine)}</td><td>${esc(r.address)}</td></tr>`,
+    )
+    .join("\n");
+
+  const table = (head, rows) =>
+    rows
+      ? `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>\n${rows}\n</tbody></table>`
+      : `<p class="lead">${esc(s.chNone)}</p>`;
+
+  const itemList = jsonLd({
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: title,
+    numberOfItems: newcomers.length,
+    itemListElement: newcomers.map((r, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "Restaurant",
+        name: r.name,
+        address: r.address,
+        servesCuisine: r.cuisine,
+        geo: { "@type": "GeoCoordinates", latitude: r.lat, longitude: r.lng },
+        ...(r.url ? { sameAs: r.url } : {}),
+      },
+    })),
+  });
+
+  const relAreaLinks = AREAS.filter((a) => listings(a.id, null).length >= MIN_LISTINGS)
+    .map((a) => `<a href="/${lang}/${a.slug}/changes-${YEAR}/">${esc(a[lang])}</a>`)
+    .join("");
+
+  return `<!doctype html>
+<html lang="${s.htmlLang}">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${esc(title)} | ${lang === "ja" ? "ミシュマップ" : "MishuMap"}</title>
+<meta name="description" content="${esc(s.chMeta(areaName, newcomers.length, changed.length, dropped.length))}" />
+<link rel="canonical" href="${self}" />
+<link rel="alternate" hreflang="ja" href="${SITE}/ja/${area.slug}/changes-${YEAR}/" />
+<link rel="alternate" hreflang="en" href="${SITE}/en/${area.slug}/changes-${YEAR}/" />
+<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>${CSS}</style>
+<script type="application/ld+json">${itemList}</script>
+</head>
+<body>
+<div class="wrap">
+<header class="site"><img src="/icon.svg" alt="" /><a href="/${lang}/">${lang === "ja" ? "ミシュマップ" : "MishuMap"}</a></header>
+<h1>${esc(title)}</h1>
+<p class="lead">${esc(s.chLead(areaName, newcomers.length, changed.length, dropped.length))}</p>
+<p class="lead">⚠ ${esc(s.chDisclaimer)}</p>
+<a class="cta" href="${esc(appLink(lang, area.id, null))}">${esc(s.cta)}</a>
+<h2>${esc(s.chNew(newcomers.length))}</h2>
+${table([s.thName, s.thAward, s.thGenre, s.thAddress], newRows)}
+<h2>${esc(s.chChanged(changed.length))}</h2>
+${table([s.thName, s.chArrow(PREV_YEAR, YEAR), s.thGenre], changedRows)}
+<h2>${esc(s.chDropped(dropped.length))}</h2>
+${table([s.thName, s.chPrevAward, s.thGenre, s.thAddress], droppedRows)}
+<nav class="rel">
+<div>${esc(s.relAreas)}: ${relAreaLinks}</div>
+<div><a href="/${lang}/${area.slug}/">${esc(s.all)}</a></div>
 </nav>
 <footer>${s.footer}</footer>
 </div>
@@ -295,6 +455,16 @@ for (const lang of ["ja", "en"]) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"), renderPage({ lang, area, award, rs }));
       sitemapUrls.push(pageUrl(lang, area.slug, award.slug));
+      pageCount++;
+    }
+
+    // 年次差分ページ（新規・変動・掲載外れ）
+    const diff = computeDiff(area.id);
+    if (diff.newcomers.length + diff.changed.length + diff.dropped.length >= MIN_LISTINGS) {
+      const dir = join(areaDir, `changes-${YEAR}`);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "index.html"), renderChangesPage({ lang, area, diff }));
+      sitemapUrls.push(`${SITE}/${lang}/${area.slug}/changes-${YEAR}/`);
       pageCount++;
     }
   }
