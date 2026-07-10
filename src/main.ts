@@ -6,6 +6,7 @@ import { cuisineAliasText } from "./cuisineAliases";
 import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
 import { createMap, createMarkerLayer, createOriginLayer } from "./map";
+import { initTranslator } from "./translate";
 import type { AppData, FilterState, Restaurant } from "./types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -29,6 +30,8 @@ const CATEGORY_KEYS: Record<string, StringKey> = {
 };
 
 async function boot(): Promise<void> {
+  // 翻訳APIの対応判定だけ先に走らせておく（ポップアップが開く頃には確定している）
+  void initTranslator();
   // /ja/ /en/ どちらのページからでもサイトルートの data/ を指すよう、言語セグメントを剥がして解決する
   const siteRoot = location.pathname.replace(/(ja|en)\/(?:index\.html)?$/, "");
   const res = await fetch(`${siteRoot}data/restaurants.json`);

@@ -2,6 +2,7 @@ import L from "leaflet";
 import { awardLabel, awardShort, awardStyle } from "./awards";
 import { distanceMeters, effectiveAward, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
 import { fmt, getLang, t } from "./i18n";
+import { translateDescription, translatorAvailable } from "./translate";
 import type { FilterState, Origin, Restaurant } from "./types";
 
 const JAPAN_CENTER: L.LatLngTuple = [35.15, 137.0];
@@ -113,12 +114,56 @@ export function buildPopupHtml(
     links.push(`<a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupSiteLink"))}</a>`);
   if (links.length) parts.push(`<p class="popup-links">${links.join("")}</p>`);
   if (r.description) {
+    // 日本語UIかつ対応ブラウザでは、オンデバイス翻訳ボタンを出す
+    const translateBtn =
+      getLang() === "ja" && translatorAvailable()
+        ? `<button type="button" class="translate-btn">${escapeHtml(t("translateBtn"))}</button>`
+        : "";
     parts.push(
-      `<details class="popup-desc"><summary>${escapeHtml(t("popupDesc"))}</summary><p>${escapeHtml(r.description)}</p></details>`,
+      `<details class="popup-desc"><summary>${escapeHtml(t("popupDesc"))}</summary><p class="desc-text">${escapeHtml(r.description)}</p>${translateBtn}</details>`,
     );
   }
   parts.push(`</article>`);
   return parts.join("");
+}
+
+/**
+ * ポップアップDOMを組み立て、翻訳ボタンにハンドラを配線する。
+ * Leafletのポップアップはクリックのバブリングを止めるため、
+ * document委譲ではなく要素へ直接リスナーを付ける必要がある
+ */
+export function buildPopupEl(
+  r: Restaurant,
+  f: FilterState,
+  years: number[],
+  categoryLabel: string,
+  areaLabel: string,
+): HTMLElement {
+  const el = document.createElement("div");
+  el.innerHTML = buildPopupHtml(r, f, years, categoryLabel, areaLabel);
+  const btn = el.querySelector<HTMLButtonElement>(".translate-btn");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = t("translating");
+      try {
+        const ja = await translateDescription(r.id, r.description, (pct) => {
+          btn.textContent = fmt(t("translateDownloading"), { n: pct });
+        });
+        const desc = el.querySelector(".desc-text");
+        if (desc) desc.textContent = ja;
+        const note = document.createElement("small");
+        note.className = "translated-note";
+        note.textContent = t("translatedNote");
+        el.querySelector(".popup-desc")?.appendChild(note);
+        btn.remove();
+      } catch {
+        btn.disabled = false;
+        btn.textContent = t("translateFailed");
+      }
+    });
+  }
+  return el;
 }
 
 export interface MarkerLayer {
@@ -159,7 +204,7 @@ export function createMarkerLayer(
           // 過去掲載は淡く描いて現行掲載と区別する
           fillOpacity: ea?.isPast ? 0.32 : 0.92,
         });
-        marker.bindPopup(() => buildPopupHtml(r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area)), {
+        marker.bindPopup(() => buildPopupEl(r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area)), {
           maxWidth: 320,
           className: "guide-popup",
         });

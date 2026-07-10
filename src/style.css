@@ -591,6 +591,37 @@ input[type="range"]::-moz-range-thumb {
   color: var(--ink-soft);
 }
 
+.translate-btn {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border: 1.5px solid var(--red);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+
+.translate-btn:hover:not(:disabled) {
+  background: var(--red);
+  color: #faf3e3;
+}
+
+.translate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.translated-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--gold);
+}
+
 /* ---------- ローディング ---------- */
 
 .loading {
