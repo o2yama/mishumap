@@ -38,7 +38,9 @@ LATEST_YEAR = max(YEARS)
 DISTINCTIONS = ["3 Stars", "2 Stars", "1 Star", "Bib Gourmand", "Selected Restaurants"]
 ROW_CAP = 1000  # Datasette の max_returned_rows
 
-AREA_LABELS = {"Tokyo": "東京", "Osaka": "大阪", "Kyoto": "京都", "Nara": "奈良", "Suita": "吹田"}
+AREA_LABELS = {"Tokyo": "東京", "Osaka": "大阪", "Kyoto": "京都", "Nara": "奈良"}
+# 公式サイトの所在地表記は市単位のため、大阪府内の別市はエリアとしては大阪に統合する
+AREA_MERGE = {"Suita": "Osaka"}
 
 USE_CACHE = "--use-cache" in sys.argv
 
@@ -206,6 +208,10 @@ def main() -> None:
 
     all_entries: list[dict] = [e for entries in csv_index.values() for e in entries]
     all_entries += list(history_only.values())
+
+    # エリア統合（座標解決は生の所在地で終えているため、ここで付け替えても安全）
+    for entry in all_entries:
+        entry["area"] = AREA_MERGE.get(entry["area"], entry["area"])
 
     # --- 5. 最新版掲載店には最新年の受賞として現行区分を補完 ---
     # (timeline は取得時期の関係で最新年に欠けがあるため。CSV=現行ガイドの断面とみなす)

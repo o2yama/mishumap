@@ -17,7 +17,7 @@ const $ = <T extends HTMLElement>(id: string): T => {
 
 /** 区分チップの表示順（格の高い順、ビブグルマンは末尾） */
 const AWARD_CHIP_ORDER = ["3 Stars", "2 Stars", "1 Star", "Selected Restaurants", "Bib Gourmand"];
-const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Suita", "Nara"];
+const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Nara"];
 const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
 const DEFAULT_WALK = 15;
 

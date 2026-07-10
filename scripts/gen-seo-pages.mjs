@@ -18,7 +18,6 @@ const AREAS = [
   { id: "Kyoto", slug: "kyoto", ja: "京都", en: "Kyoto" },
   { id: "Osaka", slug: "osaka", ja: "大阪", en: "Osaka" },
   { id: "Nara", slug: "nara", ja: "奈良", en: "Nara" },
-  { id: "Suita", slug: "suita", ja: "吹田", en: "Suita" },
 ];
 
 const AWARDS = [
