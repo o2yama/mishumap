@@ -24,9 +24,33 @@ export function awardInYear(r: Restaurant, year: number): string | undefined {
   return r.awards[String(year)];
 }
 
+export interface EffectiveAward {
+  award: string;
+  year: number;
+  /** 選択年には掲載がなく、過去の掲載記録から表示している */
+  isPast: boolean;
+}
+
+/**
+ * 選択年の掲載区分。includePast時は「選択年より前の最後の掲載」まで遡って返す。
+ * どの年にも記録がなければ undefined
+ */
+export function effectiveAward(r: Restaurant, f: Pick<FilterState, "year" | "includePast">): EffectiveAward | undefined {
+  const direct = r.awards[String(f.year)];
+  if (direct) return { award: direct, year: f.year, isPast: false };
+  if (!f.includePast) return undefined;
+  let latest = -1;
+  for (const y of Object.keys(r.awards)) {
+    const n = Number(y);
+    if (n < f.year && n > latest) latest = n;
+  }
+  if (latest < 0) return undefined;
+  return { award: r.awards[String(latest)], year: latest, isPast: true };
+}
+
 export function matchesFilters(r: Restaurant, f: FilterState): boolean {
-  const award = awardInYear(r, f.year);
-  if (!award || !f.awards.has(award)) return false;
+  const ea = effectiveAward(r, f);
+  if (!ea || !f.awards.has(ea.award)) return false;
   if (f.area && r.area !== f.area) return false;
   if (!f.categories.has(r.category)) return false;
 
@@ -57,9 +81,15 @@ export function applyFilters(all: Restaurant[], f: FilterState): Restaurant[] {
     const o = f.origin;
     result.sort((a, b) => distanceMeters(o, a) - distanceMeters(o, b));
   } else {
+    // 過去掲載の店は現行掲載の後ろへ
     result.sort((a, b) => {
-      const oa = AWARD_ORDER[awardInYear(a, f.year) ?? ""] ?? 9;
-      const ob = AWARD_ORDER[awardInYear(b, f.year) ?? ""] ?? 9;
+      const ea = effectiveAward(a, f);
+      const eb = effectiveAward(b, f);
+      const pa = ea?.isPast ? 1 : 0;
+      const pb = eb?.isPast ? 1 : 0;
+      if (pa !== pb) return pa - pb;
+      const oa = AWARD_ORDER[ea?.award ?? ""] ?? 9;
+      const ob = AWARD_ORDER[eb?.award ?? ""] ?? 9;
       return oa !== ob ? oa - ob : a.name.localeCompare(b.name, "ja");
     });
   }

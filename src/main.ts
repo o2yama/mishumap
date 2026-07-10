@@ -3,7 +3,7 @@ import L from "leaflet";
 import "./style.css";
 import { AWARD_STYLES, awardLabel, awardShort, awardStyle } from "./awards";
 import { cuisineAliasText } from "./cuisineAliases";
-import { applyFilters, awardInYear, distanceMeters, walkMinutes } from "./filters";
+import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
 import { createMap, createMarkerLayer, createOriginLayer } from "./map";
 import type { AppData, FilterState, Restaurant } from "./types";
@@ -75,6 +75,7 @@ async function boot(): Promise<void> {
     query: "",
     origin: null,
     walkMinutes: null,
+    includePast: false,
   };
 
   const map = createMap($("map"));
@@ -165,6 +166,16 @@ async function boot(): Promise<void> {
   slider.addEventListener("input", () => {
     state.year = Number(slider.value);
     renderYear();
+    apply();
+  });
+
+  // ---- 過去掲載トグル ----
+  const pastToggle = $<HTMLInputElement>("past-toggle");
+  const pastHint = $("past-hint");
+  pastToggle.addEventListener("change", () => {
+    state.includePast = pastToggle.checked;
+    pastHint.classList.toggle("hidden", !state.includePast);
+    renderLegend();
     apply();
   });
 
@@ -275,6 +286,9 @@ async function boot(): Promise<void> {
       const st = AWARD_STYLES[key];
       return `<div class="legend-item"><span class="dot" style="background:${st.color}"></span>${awardLabel(key)}</div>`;
     }).join("");
+    if (state.includePast) {
+      legend.innerHTML += `<div class="legend-item"><span class="dot" style="background:#bb1f2f;opacity:.32"></span>${t("includePastLabel")}</div>`;
+    }
   }
 
   // ---- モバイル ----
@@ -304,17 +318,17 @@ async function boot(): Promise<void> {
     }
     const frag = document.createDocumentFragment();
     for (const r of filtered) {
-      const award = awardInYear(r, state.year);
-      const st = awardStyle(award);
+      const ea = effectiveAward(r, state);
+      const st = awardStyle(ea?.award);
       const li = document.createElement("li");
-      li.className = "result-item";
+      li.className = ea?.isPast ? "result-item past" : "result-item";
       li.style.setProperty("--award", st.color);
 
       const nameRow = document.createElement("div");
       nameRow.className = "r-name";
       const badge = document.createElement("span");
       badge.className = "r-award";
-      badge.textContent = awardShort(award);
+      badge.textContent = awardShort(ea?.award);
       const nameEl = document.createElement("span");
       nameEl.textContent = r.name;
       nameRow.append(badge, nameEl);
@@ -322,6 +336,7 @@ async function boot(): Promise<void> {
       const meta = document.createElement("div");
       meta.className = "r-meta";
       const bits = [...new Set([categoryLabel(r.category), r.cuisine, areaLabel(r.area)].filter(Boolean))];
+      if (ea?.isPast) bits.push(fmt(t("listedUntil"), { year: ea.year }));
       meta.textContent = bits.join(" ・ ");
       if (state.origin) {
         const walk = document.createElement("span");

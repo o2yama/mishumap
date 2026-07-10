@@ -1,6 +1,6 @@
 import L from "leaflet";
 import { awardLabel, awardShort, awardStyle } from "./awards";
-import { awardInYear, distanceMeters, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
+import { distanceMeters, effectiveAward, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
 import { fmt, t } from "./i18n";
 import type { FilterState, Origin, Restaurant } from "./types";
 
@@ -64,11 +64,13 @@ export function buildPopupHtml(
   categoryLabel: string,
   areaLabel: string,
 ): string {
-  const award = awardInYear(r, f.year) ?? r.currentAward;
+  const ea = effectiveAward(r, f);
+  const award = ea?.award ?? r.currentAward;
   const st = awardStyle(award);
   const parts: string[] = [`<article class="popup">`];
   parts.push(
     `<div class="popup-badges"><span class="badge" style="--chip:${st.color}">${escapeHtml(awardLabel(award))}</span>` +
+      (ea?.isPast ? `<span class="badge badge-muted">${escapeHtml(fmt(t("listedUntil"), { year: ea.year }))}</span>` : "") +
       (r.greenStar ? `<span class="badge badge-green">${escapeHtml(t("greenStar"))}</span>` : "") +
       (!r.inGuide ? `<span class="badge badge-muted">${escapeHtml(t("popupNotInGuideBadge"))}</span>` : "") +
       `</div>`,
@@ -124,18 +126,24 @@ export function createMarkerLayer(
     rebuild(restaurants: Restaurant[], f: FilterState): void {
       group.clearLayers();
       byId.clear();
-      // 重要度の高い区分（星付き）を後から描いて上に載せる
-      const ordered = [...restaurants].sort(
-        (a, b) => awardStyle(awardInYear(a, f.year)).zIndex - awardStyle(awardInYear(b, f.year)).zIndex,
-      );
+      // 重要度の高い区分（星付き）を後から描いて上に載せる。過去掲載は最背面
+      const ordered = [...restaurants].sort((a, b) => {
+        const ea = effectiveAward(a, f);
+        const eb = effectiveAward(b, f);
+        const pa = ea?.isPast ? -10 : 0;
+        const pb = eb?.isPast ? -10 : 0;
+        return pa + awardStyle(ea?.award).zIndex - (pb + awardStyle(eb?.award).zIndex);
+      });
       for (const r of ordered) {
-        const st = awardStyle(awardInYear(r, f.year));
+        const ea = effectiveAward(r, f);
+        const st = awardStyle(ea?.award);
         const marker = L.circleMarker([r.lat, r.lng], {
           radius: st.radius,
           color: "#faf6ec",
           weight: 1.5,
           fillColor: st.color,
-          fillOpacity: 0.92,
+          // 過去掲載は淡く描いて現行掲載と区別する
+          fillOpacity: ea?.isPast ? 0.32 : 0.92,
         });
         marker.bindPopup(() => buildPopupHtml(r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area)), {
           maxWidth: 320,

@@ -28,6 +28,10 @@ const STRINGS = {
     searchPlaceholder: "例: 鮨 / フレンチ / Shibuya",
     yearHint: "過去年はアーカイブ復元データのため掲載の欠損があります",
     yearSuffix: "年",
+    includePastLabel: "過去掲載店も表示",
+    includePastHint:
+      "淡色の店は選択年に掲載がなく、過去の掲載記録から表示しています。ミシュランは過去版の掲載を公式サイトから削除するため公式では確認できず、評価は当時のもので、閉店・掲載外れの可能性があります",
+    listedUntil: "{year}年まで掲載",
     countOf: "<strong>{n}</strong> 軒 / 全{total}軒",
     empty: "条件に合うお店が見つかりませんでした",
     loading: "掲載店を読み込み中…",
@@ -83,6 +87,10 @@ const STRINGS = {
     searchPlaceholder: "e.g. Sushi / French / Shibuya",
     yearHint: "Data for past years is restored from web archives and may be incomplete",
     yearSuffix: "",
+    includePastLabel: "Include past listings",
+    includePastHint:
+      "Faded markers were not listed in the selected year and are shown from past records. Michelin removes past listings from its official site, so these cannot be verified there — awards are from the year shown, and restaurants may be closed or delisted",
+    listedUntil: "Listed until {year}",
     countOf: "<strong>{n}</strong> of {total} listings",
     empty: "No restaurants match your filters",
     loading: "Loading restaurants…",

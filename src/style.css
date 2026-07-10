@@ -266,6 +266,29 @@ input[type="range"]::-moz-range-thumb {
   color: var(--red);
 }
 
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-row input {
+  accent-color: var(--red);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.result-item.past {
+  opacity: 0.62;
+}
+
 .hidden {
   display: none;
 }
