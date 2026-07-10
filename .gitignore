@@ -5,3 +5,7 @@ tmp/
 *.log
 # ja/index.html から scripts/gen-en-page.mjs が生成（predev/prebuildで自動実行）
 /en/index.html
+# scripts/gen-seo-pages.mjs が生成するSEO一覧ページとsitemap
+/public/ja/
+/public/en/
+/public/sitemap.xml

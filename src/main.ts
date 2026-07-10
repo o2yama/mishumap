@@ -72,10 +72,26 @@ async function boot(): Promise<void> {
       .toLowerCase();
   }
 
+  // URLパラメータで初期フィルタを指定できる（SEO一覧ページ→地図の導線用）
+  // 例: /ja/?area=tokyo&awards=bib-gourmand
+  const AWARD_SLUGS: Record<string, string> = {
+    "bib-gourmand": "Bib Gourmand",
+    "3-stars": "3 Stars",
+    "2-stars": "2 Stars",
+    "1-star": "1 Star",
+    selected: "Selected Restaurants",
+  };
+  const params = new URLSearchParams(location.search);
+  const paramAwards = (params.get("awards") ?? "")
+    .split(",")
+    .map((s) => AWARD_SLUGS[s.trim()])
+    .filter(Boolean);
+  const paramArea = data.areas.find((a) => a.id.toLowerCase() === (params.get("area") ?? "").toLowerCase())?.id;
+
   const state: FilterState = {
-    awards: new Set(["3 Stars", "2 Stars", "1 Star"]),
+    awards: new Set(paramAwards.length ? paramAwards : ["3 Stars", "2 Stars", "1 Star"]),
     year: data.latestYear,
-    area: "",
+    area: paramArea ?? "",
     categories: new Set(data.categories.map((c) => c.id)),
     query: "",
     origin: null,
@@ -132,11 +148,11 @@ async function boot(): Promise<void> {
     ...data.areas.map((a) => a.id).filter((a) => !AREA_ORDER.includes(a)),
   ];
   const areaButtons = new Map<string, HTMLButtonElement>();
-  const allAreasBtn = makeChip(() => t("allAreas"), "#8f1622", true, () => selectArea(""));
+  const allAreasBtn = makeChip(() => t("allAreas"), "#8f1622", state.area === "", () => selectArea(""));
   areaChips.appendChild(allAreasBtn);
   areaButtons.set("", allAreasBtn);
   for (const areaId of orderedAreas) {
-    const btn = makeChip(() => areaLabel(areaId), "#8f1622", false, () => selectArea(areaId));
+    const btn = makeChip(() => areaLabel(areaId), "#8f1622", areaId === state.area, () => selectArea(areaId));
     areaChips.appendChild(btn);
     areaButtons.set(areaId, btn);
   }
