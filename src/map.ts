@@ -93,8 +93,13 @@ export function buildPopupHtml(
   const links: string[] = [];
   const guideUrl = safeUrl(r.url);
   const siteUrl = safeUrl(r.website);
-  if (guideUrl)
+  if (!r.inGuide) {
+    // 最新版に掲載のない店はミシュラン公式ページが削除済み（404）のため、Googleマップ検索へ飛ばす
+    const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`;
+    links.push(`<a href="${escapeHtml(gmapsUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupGmapsLink"))}</a>`);
+  } else if (guideUrl) {
     links.push(`<a href="${escapeHtml(guideUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupGuideLink"))}</a>`);
+  }
   if (siteUrl)
     links.push(`<a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupSiteLink"))}</a>`);
   if (links.length) parts.push(`<p class="popup-links">${links.join("")}</p>`);
