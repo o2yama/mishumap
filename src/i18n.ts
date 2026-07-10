@@ -2,8 +2,8 @@ export type Lang = "ja" | "en";
 
 const STRINGS = {
   ja: {
-    docTitle: "ビブグルマンマップ — 日本のミシュラン掲載店を地図で探す",
-    appTitle: "ビブグルマンマップ",
+    docTitle: "ミシュマップ — 日本のミシュラン掲載店を地図で探す",
+    appTitle: "ミシュマップ",
     tagline: "日本のミシュラン掲載店をひと目で",
     sectionAward: "区分",
     sectionYear: "掲載年",
@@ -62,8 +62,8 @@ const STRINGS = {
       'データ: <a href="https://github.com/ngshiheng/michelin-my-maps" target="_blank" rel="noopener">michelin-my-maps</a>（MIT） / 徒歩分数は直線距離×80m/分の近似です。<br />全軒数には過去年のみ掲載の店（閉店・掲載外れ等）を含みます。住所検索はローマ字表記（例: Shibuya）に対応しています。<br />本サイトはミシュランガイド非公式のファンメイドです。',
   },
   en: {
-    docTitle: "Bib Gourmand Map — Michelin-listed restaurants in Japan",
-    appTitle: "Bib Gourmand Map",
+    docTitle: "MishuMap — Michelin-listed restaurants in Japan",
+    appTitle: "MishuMap",
     tagline: "Michelin-listed restaurants in Japan at a glance",
     sectionAward: "Distinction",
     sectionYear: "Guide year",
