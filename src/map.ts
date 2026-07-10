@@ -1,7 +1,7 @@
 import L from "leaflet";
 import { awardLabel, awardShort, awardStyle } from "./awards";
 import { distanceMeters, effectiveAward, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
-import { fmt, t } from "./i18n";
+import { fmt, getLang, t } from "./i18n";
 import type { FilterState, Origin, Restaurant } from "./types";
 
 const JAPAN_CENTER: L.LatLngTuple = [35.15, 137.0];
@@ -44,6 +44,15 @@ function safeUrl(raw: string): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * 日本語UIではミシュラン公式の日本語ページへ飛ばす。
+ * /en/→/jp/ja/ の置換は公式ページの hreflang="ja-jp" 宣言と一致することを確認済み
+ */
+function localizeGuideUrl(url: string): string {
+  if (!url || getLang() !== "ja") return url;
+  return url.replace("https://guide.michelin.com/en/", "https://guide.michelin.com/jp/ja/");
 }
 
 function historyChips(r: Restaurant, years: number[]): string {
@@ -91,7 +100,7 @@ export function buildPopupHtml(
     );
   }
   const links: string[] = [];
-  const guideUrl = safeUrl(r.url);
+  const guideUrl = localizeGuideUrl(safeUrl(r.url));
   const siteUrl = safeUrl(r.website);
   if (!r.inGuide) {
     // 最新版に掲載のない店はミシュラン公式ページが削除済み（404）のため、Googleマップ検索へ飛ばす
