@@ -4,7 +4,6 @@ const STRINGS = {
   ja: {
     docTitle: "ミシュマップ — 日本のミシュラン掲載店を地図で探す",
     appTitle: "ミシュマップ",
-    tagline: "日本のミシュラン掲載店をひと目で",
     sectionAward: "区分",
     sectionYear: "掲載年",
     sectionArea: "エリア",
@@ -64,7 +63,6 @@ const STRINGS = {
   en: {
     docTitle: "MishuMap — Michelin-listed restaurants in Japan",
     appTitle: "MishuMap",
-    tagline: "Michelin-listed restaurants in Japan at a glance",
     sectionAward: "Distinction",
     sectionYear: "Guide year",
     sectionArea: "Area",
