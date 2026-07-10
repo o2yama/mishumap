@@ -15,6 +15,10 @@
 - 静的サイト: Vite + TypeScript + Leaflet（OpenStreetMap）。バックエンドなし
 - データ: `scripts/fetch_data.py` が生成する `public/data/restaurants.json` を同梱
 - カテゴリ分類の対応表: `data/cuisine_categories.json`（手動キュレーション。未知の料理ジャンルが出たらここに追記）
+- **言語別パス**: `/ja/` と `/en/` の2ページ構成。ルート `/` はリダイレクタ（localStorage > ブラウザ言語で振り分け）
+  - アプリ本体のHTMLは `ja/index.html` が唯一のソース。`en/index.html` は `scripts/gen-en-page.mjs` が
+    predev/prebuild で自動生成する（gitignore済み。**直接編集しない**）
+  - 直接 `/en/` を開いたときはパスが保存設定より優先される（シェアURLの言語を固定するため）
 
 ## データソース（重要）
 

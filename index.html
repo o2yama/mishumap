@@ -3,95 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ミシュマップ — 日本のミシュラン掲載店を地図で探す</title>
-    <meta
-      name="description"
-      content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"
-    />
+    <title>ミシュマップ / MishuMap</title>
+    <meta name="robots" content="noindex" />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="alternate" hreflang="ja" href="https://o2yama.github.io/mishumap/ja/" />
+    <link rel="alternate" hreflang="en" href="https://o2yama.github.io/mishumap/en/" />
+    <script>
+      // 言語別パスへの振り分け: 前回の選択（localStorage）> ブラウザ言語
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem("bgm-lang");
+        } catch (e) {}
+        var lang =
+          saved === "ja" || saved === "en"
+            ? saved
+            : (navigator.language || "").toLowerCase().indexOf("ja") === 0
+              ? "ja"
+              : "en";
+        location.replace("./" + lang + "/");
+      })();
+    </script>
   </head>
   <body>
-    <div id="app">
-      <aside class="sidebar" id="sidebar">
-        <header class="masthead">
-          <img src="icon.svg" alt="" class="mark" />
-          <div>
-            <h1 data-i18n="appTitle">ミシュマップ</h1>
-          </div>
-        </header>
-
-        <section class="panel" style="--stagger: 1">
-          <h2 data-i18n="sectionAward">区分</h2>
-          <div class="chips" id="award-chips"></div>
-        </section>
-
-        <section class="panel" style="--stagger: 2">
-          <h2 data-i18n="sectionYear">掲載年</h2>
-          <div class="year-row">
-            <input type="range" id="year-slider" step="1" />
-            <output class="year-display" id="year-display"></output>
-          </div>
-          <p class="hint hidden" id="year-hint" data-i18n="yearHint"></p>
-          <label class="toggle-row">
-            <input type="checkbox" id="past-toggle" />
-            <span data-i18n="includePastLabel"></span>
-          </label>
-          <p class="hint hidden" id="past-hint" data-i18n="includePastHint"></p>
-        </section>
-
-        <section class="panel" style="--stagger: 3">
-          <h2 data-i18n="sectionArea">エリア</h2>
-          <div class="chips" id="area-chips"></div>
-        </section>
-
-        <section class="panel" style="--stagger: 4">
-          <h2 data-i18n="sectionCategory">カテゴリ</h2>
-          <div class="chips" id="category-chips"></div>
-        </section>
-
-        <section class="panel" style="--stagger: 5">
-          <h2 data-i18n="sectionLocate">現在地から探す</h2>
-          <div class="locate-row">
-            <button id="locate-btn" type="button"></button>
-            <select id="walk-select" disabled></select>
-          </div>
-          <p class="hint hidden" id="locate-status"></p>
-        </section>
-
-        <section class="panel" style="--stagger: 6">
-          <h2 data-i18n="sectionSearch">店名・住所で検索</h2>
-          <input type="search" id="query-input" />
-        </section>
-
-        <section class="results" style="--stagger: 7">
-          <div class="results-head">
-            <h2 data-i18n="sectionResults">検索結果</h2>
-            <span class="count" id="result-count"></span>
-          </div>
-          <ul class="result-list" id="result-list"></ul>
-        </section>
-
-        <footer class="credits" id="credits"></footer>
-      </aside>
-
-      <main class="map-wrap">
-        <div id="map"></div>
-        <div class="lang-toggle" id="lang-toggle">
-          <button type="button" data-lang="ja">日本語</button><button type="button" data-lang="en">EN</button>
-        </div>
-        <div class="legend" id="legend"></div>
-        <button class="mobile-toggle" id="mobile-toggle" type="button">検索・絞り込み</button>
-      </main>
-
-      <div class="loading" id="loading"><img src="icon.svg" alt="" class="mark mark-lg" /><p data-i18n="loading">掲載店を読み込み中…</p></div>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+    <p style="font-family: sans-serif; padding: 24px">
+      <a href="./ja/">日本語</a> / <a href="./en/">English</a>
+    </p>
   </body>
 </html>

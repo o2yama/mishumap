@@ -125,7 +125,15 @@ export type StringKey = keyof (typeof STRINGS)["ja"];
 
 const STORAGE_KEY = "bgm-lang";
 
+/** /ja/ か /en/ のページで動いているならその言語（URLが最優先の真実） */
+function langFromPath(): Lang | null {
+  const m = location.pathname.match(/\/(ja|en)\/(?:index\.html)?$/);
+  return m ? (m[1] as Lang) : null;
+}
+
 function detectLang(): Lang {
+  const fromPath = langFromPath();
+  if (fromPath) return fromPath;
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "ja" || saved === "en") return saved;
@@ -149,6 +157,11 @@ export function setLang(lang: Lang): void {
     localStorage.setItem(STORAGE_KEY, lang);
   } catch {
     /* 保存できなくても動作に支障なし */
+  }
+  // 言語別パス上ならURLも書き換える（ページ遷移なしで地図の状態を保つ）
+  const m = location.pathname.match(/^(.*\/)(ja|en)(\/(?:index\.html)?)$/);
+  if (m && m[2] !== lang) {
+    history.replaceState(null, "", `${m[1]}${lang}/`);
   }
 }
 

@@ -29,7 +29,9 @@ const CATEGORY_KEYS: Record<string, StringKey> = {
 };
 
 async function boot(): Promise<void> {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/restaurants.json`);
+  // /ja/ /en/ どちらのページからでもサイトルートの data/ を指すよう、言語セグメントを剥がして解決する
+  const siteRoot = location.pathname.replace(/(ja|en)\/(?:index\.html)?$/, "");
+  const res = await fetch(`${siteRoot}data/restaurants.json`);
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const data: AppData = await res.json();
 

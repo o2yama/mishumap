@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/gen-en-page.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/gen-en-page.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "data": "python3 scripts/fetch_data.py"

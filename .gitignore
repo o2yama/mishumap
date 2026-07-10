@@ -3,3 +3,5 @@ dist/
 tmp/
 .DS_Store
 *.log
+# ja/index.html から scripts/gen-en-page.mjs が生成（predev/prebuildで自動実行）
+/en/index.html
