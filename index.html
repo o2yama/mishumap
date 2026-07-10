@@ -11,6 +11,9 @@
     <script>
       // 言語別パスへの振り分け: 前回の選択（localStorage）> ブラウザ言語
       (function () {
+        // devサーバーのSPAフォールバック等で言語パス配下にこのページが出た場合は
+        // 二重リダイレクトになるため何もしない（無限ループ防止）
+        if (/\/(ja|en)(\/|$)/.test(location.pathname)) return;
         var saved = null;
         try {
           saved = localStorage.getItem("bgm-lang");
