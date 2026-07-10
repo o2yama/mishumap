@@ -95,6 +95,33 @@ body {
   letter-spacing: 0.14em;
 }
 
+.lang-toggle {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lang-toggle button {
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.16s;
+}
+
+.lang-toggle button.on {
+  background: var(--red);
+  color: #faf3e3;
+}
+
 /* ---------- パネル ---------- */
 
 .panel,

@@ -1,6 +1,7 @@
 import L from "leaflet";
-import { awardStyle } from "./awards";
+import { awardLabel, awardShort, awardStyle } from "./awards";
 import { awardInYear, distanceMeters, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
+import { fmt, t } from "./i18n";
 import type { FilterState, Origin, Restaurant } from "./types";
 
 const JAPAN_CENTER: L.LatLngTuple = [35.15, 137.0];
@@ -49,8 +50,9 @@ function historyChips(r: Restaurant, years: number[]): string {
   const chips = years
     .filter((y) => r.awards[String(y)])
     .map((y) => {
-      const st = awardStyle(r.awards[String(y)]);
-      return `<span class="chip" style="--chip:${st.color}">${y} ${escapeHtml(st.short)}</span>`;
+      const award = r.awards[String(y)];
+      const st = awardStyle(award);
+      return `<span class="chip" style="--chip:${st.color}">${y} ${escapeHtml(awardShort(award))}</span>`;
     });
   return chips.join("");
 }
@@ -62,37 +64,41 @@ export function buildPopupHtml(
   categoryLabel: string,
   areaLabel: string,
 ): string {
-  const st = awardStyle(awardInYear(r, f.year) ?? r.currentAward);
+  const award = awardInYear(r, f.year) ?? r.currentAward;
+  const st = awardStyle(award);
   const parts: string[] = [`<article class="popup">`];
   parts.push(
-    `<div class="popup-badges"><span class="badge" style="--chip:${st.color}">${escapeHtml(st.label)}</span>` +
-      (r.greenStar ? `<span class="badge badge-green">グリーンスター</span>` : "") +
-      (!r.inGuide ? `<span class="badge badge-muted">最新版に掲載なし</span>` : "") +
+    `<div class="popup-badges"><span class="badge" style="--chip:${st.color}">${escapeHtml(awardLabel(award))}</span>` +
+      (r.greenStar ? `<span class="badge badge-green">${escapeHtml(t("greenStar"))}</span>` : "") +
+      (!r.inGuide ? `<span class="badge badge-muted">${escapeHtml(t("popupNotInGuideBadge"))}</span>` : "") +
       `</div>`,
   );
   parts.push(`<h3>${escapeHtml(r.name)}</h3>`);
-  const meta = [categoryLabel, r.cuisine, priceYen(r.price), areaLabel].filter(Boolean);
+  // 英語UIではカテゴリ名とジャンル名が同語になり得る（Japanese等）ため重複を除く
+  const meta = [...new Set([categoryLabel, r.cuisine, priceYen(r.price), areaLabel].filter(Boolean))];
   parts.push(`<p class="popup-meta">${meta.map(escapeHtml).join(" ・ ")}</p>`);
   parts.push(`<div class="popup-history">${historyChips(r, years)}</div>`);
   if (!r.inGuide) {
-    parts.push(`<p class="popup-note">閉店・掲載外れの可能性があります（過去の掲載記録から復元）</p>`);
+    parts.push(`<p class="popup-note">${escapeHtml(t("popupNotInGuideNote"))}</p>`);
   }
   if (r.address) parts.push(`<p class="popup-address">${escapeHtml(r.address)}</p>`);
   if (f.origin) {
     const m = distanceMeters(f.origin, r);
     parts.push(
-      `<p class="popup-walk">現在地から徒歩約 <strong>${walkMinutes(m)}分</strong>（直線 ${Math.round(m)}m）</p>`,
+      `<p class="popup-walk">${fmt(t("popupWalk"), { min: walkMinutes(m), m: Math.round(m) })}</p>`,
     );
   }
   const links: string[] = [];
   const guideUrl = safeUrl(r.url);
   const siteUrl = safeUrl(r.website);
-  if (guideUrl) links.push(`<a href="${escapeHtml(guideUrl)}" target="_blank" rel="noopener">ミシュラン公式ページ</a>`);
-  if (siteUrl) links.push(`<a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener">お店のサイト</a>`);
+  if (guideUrl)
+    links.push(`<a href="${escapeHtml(guideUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupGuideLink"))}</a>`);
+  if (siteUrl)
+    links.push(`<a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupSiteLink"))}</a>`);
   if (links.length) parts.push(`<p class="popup-links">${links.join("")}</p>`);
   if (r.description) {
     parts.push(
-      `<details class="popup-desc"><summary>ガイドの紹介文（英語）</summary><p>${escapeHtml(r.description)}</p></details>`,
+      `<details class="popup-desc"><summary>${escapeHtml(t("popupDesc"))}</summary><p>${escapeHtml(r.description)}</p></details>`,
     );
   }
   parts.push(`</article>`);

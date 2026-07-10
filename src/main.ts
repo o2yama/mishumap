@@ -1,9 +1,10 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "./style.css";
-import { AWARD_STYLES, awardStyle } from "./awards";
+import { AWARD_STYLES, awardLabel, awardShort, awardStyle } from "./awards";
 import { cuisineAliasText } from "./cuisineAliases";
 import { applyFilters, awardInYear, distanceMeters, walkMinutes } from "./filters";
+import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
 import { createMap, createMarkerLayer, createOriginLayer } from "./map";
 import type { AppData, FilterState, Restaurant } from "./types";
 
@@ -16,24 +17,51 @@ const $ = <T extends HTMLElement>(id: string): T => {
 /** 区分チップの表示順（ビブグルマンが主役） */
 const AWARD_CHIP_ORDER = ["Bib Gourmand", "3 Stars", "2 Stars", "1 Star", "Selected Restaurants"];
 const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Suita", "Nara"];
+const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
+const DEFAULT_WALK = 15;
+
+const CATEGORY_KEYS: Record<string, StringKey> = {
+  washoku: "catWashoku",
+  yoshoku: "catYoshoku",
+  chuka: "catChuka",
+  ethnic: "catEthnic",
+  other: "catOther",
+};
 
 async function boot(): Promise<void> {
   const res = await fetch(`${import.meta.env.BASE_URL}data/restaurants.json`);
-  if (!res.ok) throw new Error(`データ読み込み失敗: ${res.status}`);
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   const data: AppData = await res.json();
 
-  const categoryLabels = new Map(data.categories.map((c) => [c.id, c.label]));
-  const areaLabels = new Map(data.areas.map((a) => [a.id, a.label]));
+  const areaJaLabels = new Map(data.areas.map((a) => [a.id, a.label]));
+  const categoryJaLabels = new Map(data.categories.map((c) => [c.id, c.label]));
 
-  // 店名・住所がローマ字のため、日本語エイリアス込みの検索テキストを事前構築する
+  const categoryLabel = (id: string): string => {
+    const key = CATEGORY_KEYS[id];
+    return key ? t(key) : (categoryJaLabels.get(id) ?? id);
+  };
+  // エリアIDは英語地名そのものなので、英語UIではIDを表示する
+  const areaLabel = (id: string): string => (getLang() === "ja" ? (areaJaLabels.get(id) ?? id) : id);
+
+  // 店名・住所がローマ字のため、日英両方の語彙を検索テキストに含める
+  // （表示言語に関わらず「和食」でも "Western" でもヒットさせる）
+  const CATEGORY_EN: Record<string, string> = {
+    washoku: "Japanese",
+    yoshoku: "Western",
+    chuka: "Chinese",
+    ethnic: "Asian Ethnic",
+    other: "Creative Others",
+  };
   for (const r of data.restaurants) {
     r.searchText = [
       r.name,
       r.address,
       r.cuisine,
       cuisineAliasText(r.cuisine),
-      categoryLabels.get(r.category) ?? "",
-      areaLabels.get(r.area) ?? "",
+      categoryJaLabels.get(r.category) ?? "",
+      CATEGORY_EN[r.category] ?? "",
+      areaJaLabels.get(r.area) ?? "",
+      r.area,
     ]
       .join(" ")
       .toLowerCase();
@@ -50,13 +78,34 @@ async function boot(): Promise<void> {
   };
 
   const map = createMap($("map"));
-  const markerLayer = createMarkerLayer(
-    map,
-    data.years,
-    (id) => categoryLabels.get(id) ?? id,
-    (id) => areaLabels.get(id) ?? id,
-  );
+  const markerLayer = createMarkerLayer(map, data.years, categoryLabel, areaLabel);
   const originLayer = createOriginLayer(map);
+
+  /** 言語切替時に呼び直すラベル更新処理の登録簿 */
+  const labelUpdaters: Array<() => void> = [];
+
+  function makeChip(labelOf: () => string, color: string, initialOn: boolean, onToggle: (on: boolean) => void): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip-btn";
+    btn.style.setProperty("--chip", color);
+    btn.classList.toggle("on", initialOn);
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    const text = document.createElement("span");
+    btn.append(dot, text);
+    const update = () => {
+      text.textContent = labelOf();
+    };
+    update();
+    labelUpdaters.push(update);
+    btn.addEventListener("click", () => {
+      const on = !btn.classList.contains("on");
+      btn.classList.toggle("on", on);
+      onToggle(on);
+    });
+    return btn;
+  }
 
   // ---- チップ生成 ----
   const awardChips = $("award-chips");
@@ -64,7 +113,7 @@ async function boot(): Promise<void> {
     const st = AWARD_STYLES[key];
     if (!st) continue;
     awardChips.appendChild(
-      makeChip(st.label, st.color, state.awards.has(key), (on) => {
+      makeChip(() => awardLabel(key), st.color, state.awards.has(key), (on) => {
         on ? state.awards.add(key) : state.awards.delete(key);
         apply();
       }),
@@ -73,15 +122,15 @@ async function boot(): Promise<void> {
 
   const areaChips = $("area-chips");
   const orderedAreas = [
-    ...AREA_ORDER.filter((a) => areaLabels.has(a)),
+    ...AREA_ORDER.filter((a) => areaJaLabels.has(a)),
     ...data.areas.map((a) => a.id).filter((a) => !AREA_ORDER.includes(a)),
   ];
   const areaButtons = new Map<string, HTMLButtonElement>();
-  const allAreasBtn = makeChip("すべて", "#8f1622", true, () => selectArea(""));
+  const allAreasBtn = makeChip(() => t("allAreas"), "#8f1622", true, () => selectArea(""));
   areaChips.appendChild(allAreasBtn);
   areaButtons.set("", allAreasBtn);
   for (const areaId of orderedAreas) {
-    const btn = makeChip(areaLabels.get(areaId) ?? areaId, "#8f1622", false, () => selectArea(areaId));
+    const btn = makeChip(() => areaLabel(areaId), "#8f1622", false, () => selectArea(areaId));
     areaChips.appendChild(btn);
     areaButtons.set(areaId, btn);
   }
@@ -95,7 +144,7 @@ async function boot(): Promise<void> {
   const categoryChips = $("category-chips");
   for (const cat of data.categories) {
     categoryChips.appendChild(
-      makeChip(cat.label, "#6d6152", true, (on) => {
+      makeChip(() => categoryLabel(cat.id), "#6d6152", true, (on) => {
         on ? state.categories.add(cat.id) : state.categories.delete(cat.id);
         apply();
       }),
@@ -109,23 +158,50 @@ async function boot(): Promise<void> {
   slider.min = String(Math.min(...data.years));
   slider.max = String(Math.max(...data.years));
   slider.value = String(state.year);
-  const syncYear = () => {
-    state.year = Number(slider.value);
-    yearDisplay.textContent = `${state.year}年`;
+  const renderYear = () => {
+    yearDisplay.textContent = `${state.year}${t("yearSuffix")}`;
     yearHint.classList.toggle("hidden", state.year === data.latestYear);
-    apply();
   };
-  slider.addEventListener("input", syncYear);
+  slider.addEventListener("input", () => {
+    state.year = Number(slider.value);
+    renderYear();
+    apply();
+  });
 
   // ---- 現在地 ----
   const locateBtn = $<HTMLButtonElement>("locate-btn");
   const walkSelect = $<HTMLSelectElement>("walk-select");
   const locateStatus = $("locate-status");
 
-  function setStatus(message: string, isError = false): void {
-    locateStatus.textContent = message;
-    locateStatus.classList.toggle("hidden", !message);
-    locateStatus.classList.toggle("error", isError);
+  let statusKey: StringKey | null = null;
+  let statusIsError = false;
+
+  function renderStatus(): void {
+    locateStatus.textContent = statusKey ? t(statusKey) : "";
+    locateStatus.classList.toggle("hidden", !statusKey);
+    locateStatus.classList.toggle("error", statusIsError);
+  }
+
+  function setStatus(key: StringKey | null, isError = false): void {
+    statusKey = key;
+    statusIsError = isError;
+    renderStatus();
+  }
+
+  function renderWalkOptions(): void {
+    // 選択状態はstateから復元する（言語切替による再構築で「距離指定なし」を潰さない）
+    const current =
+      state.walkMinutes !== null ? String(state.walkMinutes) : state.origin ? "" : String(DEFAULT_WALK);
+    walkSelect.replaceChildren(
+      new Option(t("walkNone"), ""),
+      ...WALK_CHOICES.map((n) => new Option(fmt(t("walkOption"), { n }), String(n))),
+    );
+    walkSelect.value = current;
+  }
+
+  function renderLocateBtn(): void {
+    locateBtn.textContent = state.origin ? t("locateClear") : t("locateGet");
+    locateBtn.classList.toggle("active", state.origin !== null);
   }
 
   function clearOrigin(): void {
@@ -133,39 +209,37 @@ async function boot(): Promise<void> {
     state.walkMinutes = null;
     originLayer.clear();
     walkSelect.disabled = true;
-    locateBtn.classList.remove("active");
-    locateBtn.textContent = "📍 現在地を取得";
-    setStatus("");
+    renderLocateBtn();
+    setStatus(null);
     apply();
   }
 
   function requestLocation(): void {
     if (!("geolocation" in navigator)) {
-      setStatus("この端末では位置情報を利用できません", true);
+      setStatus("locateUnsupported", true);
       return;
     }
     locateBtn.disabled = true;
-    setStatus("現在地を取得中…");
+    setStatus("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         locateBtn.disabled = false;
-        locateBtn.classList.add("active");
-        locateBtn.textContent = "✕ 現在地を解除";
         state.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         walkSelect.disabled = false;
         state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
         originLayer.set(state.origin, state.walkMinutes);
-        setStatus("現在地から近い順に表示しています");
+        renderLocateBtn();
+        setStatus("locateSorted");
         apply();
       },
       (err) => {
         locateBtn.disabled = false;
-        const reasons: Record<number, string> = {
-          1: "位置情報の利用が許可されませんでした",
-          2: "現在地を特定できませんでした",
-          3: "現在地の取得がタイムアウトしました",
+        const reasons: Record<number, StringKey> = {
+          1: "locateDenied",
+          2: "locateUnavailable",
+          3: "locateTimeout",
         };
-        setStatus(reasons[err.code] ?? "現在地を取得できませんでした", true);
+        setStatus(reasons[err.code] ?? "locateFailed", true);
       },
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
     );
@@ -196,17 +270,22 @@ async function boot(): Promise<void> {
 
   // ---- 凡例 ----
   const legend = $("legend");
-  legend.innerHTML = AWARD_CHIP_ORDER.map((key) => {
-    const st = AWARD_STYLES[key];
-    return `<div class="legend-item"><span class="dot" style="background:${st.color}"></span>${st.label}</div>`;
-  }).join("");
+  function renderLegend(): void {
+    legend.innerHTML = AWARD_CHIP_ORDER.map((key) => {
+      const st = AWARD_STYLES[key];
+      return `<div class="legend-item"><span class="dot" style="background:${st.color}"></span>${awardLabel(key)}</div>`;
+    }).join("");
+  }
 
   // ---- モバイル ----
   const sidebar = $("sidebar");
   const mobileToggle = $("mobile-toggle");
+  function renderMobileToggle(): void {
+    mobileToggle.textContent = sidebar.classList.contains("open") ? t("mobileClose") : t("mobileOpen");
+  }
   mobileToggle.addEventListener("click", () => {
-    const open = sidebar.classList.toggle("open");
-    mobileToggle.textContent = open ? "地図に戻る" : "検索・絞り込み";
+    sidebar.classList.toggle("open");
+    renderMobileToggle();
   });
 
   // ---- 結果リスト ----
@@ -215,17 +294,18 @@ async function boot(): Promise<void> {
 
   function renderList(filtered: Restaurant[]): void {
     resultList.replaceChildren();
-    resultCount.innerHTML = `<strong>${filtered.length}</strong> 軒 / 全${data.restaurants.length}軒`;
+    resultCount.innerHTML = fmt(t("countOf"), { n: filtered.length, total: data.restaurants.length });
     if (filtered.length === 0) {
       const li = document.createElement("li");
       li.className = "empty";
-      li.textContent = "条件に合うお店が見つかりませんでした";
+      li.textContent = t("empty");
       resultList.appendChild(li);
       return;
     }
     const frag = document.createDocumentFragment();
     for (const r of filtered) {
-      const st = awardStyle(awardInYear(r, state.year));
+      const award = awardInYear(r, state.year);
+      const st = awardStyle(award);
       const li = document.createElement("li");
       li.className = "result-item";
       li.style.setProperty("--award", st.color);
@@ -234,23 +314,19 @@ async function boot(): Promise<void> {
       nameRow.className = "r-name";
       const badge = document.createElement("span");
       badge.className = "r-award";
-      badge.textContent = st.short;
+      badge.textContent = awardShort(award);
       const nameEl = document.createElement("span");
       nameEl.textContent = r.name;
       nameRow.append(badge, nameEl);
 
       const meta = document.createElement("div");
       meta.className = "r-meta";
-      const bits = [
-        categoryLabels.get(r.category) ?? r.category,
-        r.cuisine,
-        areaLabels.get(r.area) ?? r.area,
-      ].filter(Boolean);
+      const bits = [...new Set([categoryLabel(r.category), r.cuisine, areaLabel(r.area)].filter(Boolean))];
       meta.textContent = bits.join(" ・ ");
       if (state.origin) {
         const walk = document.createElement("span");
         walk.className = "r-walk";
-        walk.textContent = ` 徒歩約${walkMinutes(distanceMeters(state.origin, r))}分`;
+        walk.textContent = ` ${fmt(t("walkApprox"), { n: walkMinutes(distanceMeters(state.origin, r)) })}`;
         meta.appendChild(walk);
       }
 
@@ -259,12 +335,42 @@ async function boot(): Promise<void> {
         markerLayer.openFor(r.id);
         if (window.matchMedia("(max-width: 880px)").matches) {
           sidebar.classList.remove("open");
-          mobileToggle.textContent = "検索・絞り込み";
+          renderMobileToggle();
         }
       });
       frag.appendChild(li);
     }
     resultList.appendChild(frag);
+  }
+
+  // ---- 言語切替 ----
+  const langToggle = $("lang-toggle");
+  const langButtons = langToggle.querySelectorAll<HTMLButtonElement>("button[data-lang]");
+
+  function renderLanguage(): void {
+    document.title = t("docTitle");
+    for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) {
+      el.textContent = t(el.dataset.i18n as StringKey);
+    }
+    $("credits").innerHTML = t("credits");
+    queryInput.placeholder = t("searchPlaceholder");
+    for (const btn of langButtons) btn.classList.toggle("on", btn.dataset.lang === getLang());
+    for (const update of labelUpdaters) update();
+    renderYear();
+    renderWalkOptions();
+    renderLocateBtn();
+    renderStatus();
+    renderLegend();
+    renderMobileToggle();
+  }
+
+  for (const btn of langButtons) {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.lang === getLang()) return;
+      setLang(btn.dataset.lang as Lang);
+      renderLanguage();
+      apply(); // リスト・マーカーの表示ラベルを現在言語で再構築
+    });
   }
 
   // ---- 反映 ----
@@ -283,39 +389,17 @@ async function boot(): Promise<void> {
     map.fitBounds(bounds, { padding: [40, 40] });
   }
 
-  syncYear();
+  renderLanguage();
+  apply();
   fitToResults();
   $("loading").classList.add("done");
-}
-
-function makeChip(
-  label: string,
-  color: string,
-  initialOn: boolean,
-  onToggle: (on: boolean) => void,
-): HTMLButtonElement {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "chip-btn";
-  btn.style.setProperty("--chip", color);
-  btn.classList.toggle("on", initialOn);
-  const dot = document.createElement("span");
-  dot.className = "dot";
-  const text = document.createElement("span");
-  text.textContent = label;
-  btn.append(dot, text);
-  btn.addEventListener("click", () => {
-    const on = !btn.classList.contains("on");
-    btn.classList.toggle("on", on);
-    onToggle(on);
-  });
-  return btn;
 }
 
 boot().catch((err) => {
   console.error(err);
   const loading = document.getElementById("loading");
   if (loading) {
-    loading.innerHTML = `<p>読み込みに失敗しました。再読み込みしてください。<br><small>${String(err)}</small></p>`;
+    loading.innerHTML = `<p>${t("loadFailed")}<br><small></small></p>`;
+    loading.querySelector("small")!.textContent = String(err);
   }
 });
