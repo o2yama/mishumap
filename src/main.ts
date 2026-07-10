@@ -68,7 +68,7 @@ async function boot(): Promise<void> {
   }
 
   const state: FilterState = {
-    awards: new Set(["Bib Gourmand"]),
+    awards: new Set(["3 Stars", "2 Stars", "1 Star"]),
     year: data.latestYear,
     area: "",
     categories: new Set(data.categories.map((c) => c.id)),
