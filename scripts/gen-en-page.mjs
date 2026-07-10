@@ -1,6 +1,6 @@
 // en/index.html を ja/index.html から生成する（二重管理によるドリフト防止）。
 // 静的HTMLとして差し替えるのはSEOに効く3点のみ。残りの文言は実行時にi18nが差し替える。
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,5 +27,7 @@ for (const [from, to] of replacements) {
   html = html.replace(from, to);
 }
 
+// en/ は生成物のみのディレクトリで git に入らないため、CI では毎回作る
+mkdirSync(join(root, "en"), { recursive: true });
 writeFileSync(join(root, "en/index.html"), html);
 console.log("generated en/index.html");
