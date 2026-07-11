@@ -6,6 +6,7 @@ import { cuisineAliasText } from "./cuisineAliases";
 import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
 import { addMyLocationControl, createMap, createMarkerLayer, createOriginLayer } from "./map";
+import { loadSavedSearch, saveSearch } from "./persist";
 import { initTranslator } from "./translate";
 import type { AppData, FilterState, Origin, Restaurant } from "./types";
 
@@ -98,15 +99,32 @@ async function boot(): Promise<void> {
   /** SEO一覧ページ等からのフィルタ指定付き流入 */
   const paramEntry = Boolean(paramArea) || paramAwards.length > 0;
 
+  // 前回の検索状態を復元する。ただしフィルタ指定付き流入ではリンクが示す一覧をそのまま見せるべき
+  // なので、保存状態（検索語や区分の絞り込み）は一切適用しない。
+  // 保存データは古い・壊れている可能性があるので、現在のデータに存在する値だけ通す
+  const saved = paramEntry ? null : loadSavedSearch();
+  const knownAwards = new Set(Object.keys(AWARD_STYLES));
+  const savedAwards = saved?.awards?.filter((a) => knownAwards.has(a));
+  const savedCategories = saved?.categories?.filter((c) => data.categories.some((k) => k.id === c));
+  const savedArea = data.areas.some((a) => a.id === saved?.area) ? saved?.area : undefined;
+  const savedYear =
+    typeof saved?.year === "number" && data.years.includes(saved.year) ? saved.year : undefined;
+  /** 前回の徒歩距離。undefined=未使用（デフォルト15分を適用）、null=「距離指定なし」を選んでいた */
+  const savedWalk =
+    saved && "walkMinutes" in saved && (saved.walkMinutes === null || WALK_CHOICES.includes(saved.walkMinutes as number))
+      ? (saved.walkMinutes as number | null)
+      : undefined;
+  const initialWalk: number | null = savedWalk === undefined ? DEFAULT_WALK : savedWalk;
+
   const state: FilterState = {
-    awards: new Set(paramAwards.length ? paramAwards : ["3 Stars", "2 Stars", "1 Star"]),
-    year: data.latestYear,
-    area: paramArea ?? "",
-    categories: new Set(data.categories.map((c) => c.id)),
-    query: "",
+    awards: new Set(paramAwards.length ? paramAwards : (savedAwards ?? ["3 Stars", "2 Stars", "1 Star"])),
+    year: savedYear ?? data.latestYear,
+    area: paramArea ?? savedArea ?? "",
+    categories: new Set(savedCategories ?? data.categories.map((c) => c.id)),
+    query: typeof saved?.query === "string" ? saved.query : "",
     origin: null,
     walkMinutes: null,
-    includePast: false,
+    includePast: saved?.includePast === true,
   };
 
   const map = createMap($("map"));
@@ -176,7 +194,7 @@ async function boot(): Promise<void> {
   const categoryChips = $("category-chips");
   for (const cat of data.categories) {
     categoryChips.appendChild(
-      makeChip(() => categoryLabel(cat.id), "#6d6152", true, (on) => {
+      makeChip(() => categoryLabel(cat.id), "#6d6152", state.categories.has(cat.id), (on) => {
         on ? state.categories.add(cat.id) : state.categories.delete(cat.id);
         apply();
       }),
@@ -203,6 +221,8 @@ async function boot(): Promise<void> {
   // ---- 過去掲載トグル ----
   const pastToggle = $<HTMLInputElement>("past-toggle");
   const pastHint = $("past-hint");
+  pastToggle.checked = state.includePast;
+  pastHint.classList.toggle("hidden", !state.includePast);
   pastToggle.addEventListener("change", () => {
     state.includePast = pastToggle.checked;
     pastHint.classList.toggle("hidden", !state.includePast);
@@ -231,9 +251,14 @@ async function boot(): Promise<void> {
   }
 
   function renderWalkOptions(): void {
-    // 選択状態はstateから復元する（言語切替による再構築で「距離指定なし」を潰さない）
+    // 選択状態はstateから復元する（言語切替による再構築で「距離指定なし」を潰さない）。
+    // 現在地未取得の間は前回セッションの徒歩距離（なければ15分）をプリセットする
     const current =
-      state.walkMinutes !== null ? String(state.walkMinutes) : state.origin ? "" : String(DEFAULT_WALK);
+      state.walkMinutes !== null
+        ? String(state.walkMinutes)
+        : state.origin || initialWalk === null
+          ? ""
+          : String(initialWalk);
     walkSelect.replaceChildren(
       new Option(t("walkNone"), ""),
       ...WALK_CHOICES.map((n) => new Option(fmt(t("walkOption"), { n }), String(n))),
@@ -284,8 +309,9 @@ async function boot(): Promise<void> {
         state.origin = origin;
         walkSelect.disabled = false;
         if (auto) {
-          state.walkMinutes = DEFAULT_WALK;
-          walkSelect.value = String(DEFAULT_WALK);
+          // 前回セッションで使っていた徒歩距離（なければデフォルト15分）を適用する
+          state.walkMinutes = initialWalk;
+          walkSelect.value = initialWalk === null ? "" : String(initialWalk);
         } else {
           state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
         }
@@ -355,6 +381,7 @@ async function boot(): Promise<void> {
 
   // ---- 店名検索 ----
   const queryInput = $<HTMLInputElement>("query-input");
+  queryInput.value = state.query;
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   queryInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
@@ -480,6 +507,7 @@ async function boot(): Promise<void> {
     lastFiltered = applyFilters(data.restaurants, state);
     markerLayer.rebuild(lastFiltered, state);
     renderList(lastFiltered);
+    saveSearch(state); // 次回起動時に同じ検索状態から再開できるようにする
   }
 
   function fitToResults(animate = true): void {
