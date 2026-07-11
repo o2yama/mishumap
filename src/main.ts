@@ -5,9 +5,9 @@ import { AWARD_STYLES, awardLabel, awardShort, awardStyle } from "./awards";
 import { cuisineAliasText } from "./cuisineAliases";
 import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
-import { createMap, createMarkerLayer, createOriginLayer } from "./map";
+import { addMyLocationControl, createMap, createMarkerLayer, createOriginLayer } from "./map";
 import { initTranslator } from "./translate";
-import type { AppData, FilterState, Restaurant } from "./types";
+import type { AppData, FilterState, Origin, Restaurant } from "./types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -20,6 +20,14 @@ const AWARD_CHIP_ORDER = ["3 Stars", "2 Stars", "1 Star", "Selected Restaurants"
 const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Nara"];
 const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
 const DEFAULT_WALK = 15;
+/** 自動現在地取得で徒歩フィルタを既定適用する条件: 最寄りの掲載店がこの距離以内（＝掲載エリア内とみなす） */
+const COVERAGE_RADIUS_M = 10_000;
+/** GeolocationPositionError.code → 表示文言 */
+const GEO_ERROR_KEYS: Record<number, StringKey> = {
+  1: "locateDenied",
+  2: "locateUnavailable",
+  3: "locateTimeout",
+};
 
 const CATEGORY_KEYS: Record<string, StringKey> = {
   washoku: "catWashoku",
@@ -87,6 +95,8 @@ async function boot(): Promise<void> {
     .map((s) => AWARD_SLUGS[s.trim()])
     .filter(Boolean);
   const paramArea = data.areas.find((a) => a.id.toLowerCase() === (params.get("area") ?? "").toLowerCase())?.id;
+  /** SEO一覧ページ等からのフィルタ指定付き流入 */
+  const paramEntry = Boolean(paramArea) || paramAwards.length > 0;
 
   const state: FilterState = {
     awards: new Set(paramAwards.length ? paramAwards : ["3 Stars", "2 Stars", "1 Star"]),
@@ -236,29 +246,49 @@ async function boot(): Promise<void> {
     locateBtn.classList.toggle("active", state.origin !== null);
   }
 
+  /** 直近で取得できた位置。フィルタ解除後も位置ドットを出し続けるために保持する */
+  let lastFix: Origin | null = null;
+
   function clearOrigin(): void {
     state.origin = null;
     state.walkMinutes = null;
-    originLayer.clear();
+    // 解除するのは絞り込み・並び替えだけで、位置ドットは出したままにする
+    lastFix ? originLayer.set(lastFix, null, false) : originLayer.clear();
     walkSelect.disabled = true;
     renderLocateBtn();
     setStatus(null);
     apply();
   }
 
-  function requestLocation(): void {
+  function requestLocation(auto = false): void {
     if (!("geolocation" in navigator)) {
-      setStatus("locateUnsupported", true);
+      if (!auto) setStatus("locateUnsupported", true);
       return;
     }
     locateBtn.disabled = true;
-    setStatus("locating");
+    if (!auto) setStatus("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         locateBtn.disabled = false;
-        state.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        lastFix = origin;
+        if (auto) {
+          // フィルタ指定付き流入時と、掲載店が近くに無い場所（対象4都市の圏外）では
+          // 徒歩フィルタや視点移動はせず、位置ドットの表示だけにとどめる
+          const inArea = data.restaurants.some((r) => distanceMeters(origin, r) <= COVERAGE_RADIUS_M);
+          if (paramEntry || !inArea) {
+            originLayer.set(origin, null, false);
+            return;
+          }
+        }
+        state.origin = origin;
         walkSelect.disabled = false;
-        state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
+        if (auto) {
+          state.walkMinutes = DEFAULT_WALK;
+          walkSelect.value = String(DEFAULT_WALK);
+        } else {
+          state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
+        }
         originLayer.set(state.origin, state.walkMinutes);
         renderLocateBtn();
         setStatus("locateSorted");
@@ -266,12 +296,9 @@ async function boot(): Promise<void> {
       },
       (err) => {
         locateBtn.disabled = false;
-        const reasons: Record<number, StringKey> = {
-          1: "locateDenied",
-          2: "locateUnavailable",
-          3: "locateTimeout",
-        };
-        setStatus(reasons[err.code] ?? "locateFailed", true);
+        // ユーザー操作起点でない失敗（許可拒否等）は通知しない
+        if (auto) return;
+        setStatus(GEO_ERROR_KEYS[err.code] ?? "locateFailed", true);
       },
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
     );
@@ -280,6 +307,43 @@ async function boot(): Promise<void> {
   locateBtn.addEventListener("click", () => {
     state.origin ? clearOrigin() : requestLocation();
   });
+
+  // ---- 現在地へ移動ボタン（マップ右下・Googleマップ風） ----
+  const myLocationBtn = addMyLocationControl(map, flyToMyLocation);
+  labelUpdaters.push(() => {
+    myLocationBtn.title = t("myLocation");
+    myLocationBtn.setAttribute("aria-label", t("myLocation"));
+  });
+
+  function flyToMyLocation(): void {
+    if (!("geolocation" in navigator)) {
+      setStatus("locateUnsupported", true);
+      return;
+    }
+    myLocationBtn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        myLocationBtn.disabled = false;
+        const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        lastFix = origin;
+        if (state.origin) {
+          // 絞り込み中なら距離の基準点も最新位置へ更新する
+          state.origin = origin;
+          originLayer.set(origin, state.walkMinutes, false);
+          apply();
+        } else {
+          originLayer.set(origin, null, false);
+        }
+        map.stop();
+        map.flyTo([origin.lat, origin.lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+      },
+      (err) => {
+        myLocationBtn.disabled = false;
+        setStatus(GEO_ERROR_KEYS[err.code] ?? "locateFailed", true);
+      },
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
+    );
+  }
 
   walkSelect.addEventListener("change", () => {
     state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
@@ -418,17 +482,32 @@ async function boot(): Promise<void> {
     renderList(lastFiltered);
   }
 
-  function fitToResults(): void {
+  function fitToResults(animate = true): void {
     if (lastFiltered.length === 0) return;
     const first: L.LatLngTuple = [lastFiltered[0].lat, lastFiltered[0].lng];
     const bounds = lastFiltered.reduce((b, r) => b.extend([r.lat, r.lng]), L.latLngBounds(first, first));
-    map.fitBounds(bounds, { padding: [40, 40] });
+    map.fitBounds(bounds, { padding: [40, 40], animate });
   }
 
   renderLanguage();
   apply();
-  fitToResults();
+  // 初期表示は非アニメーションで即座に確定させる。アニメーション中だと直後の自動現在地取得の
+  // fitBoundsがLeafletに無視され、現在地へズームしないため
+  fitToResults(false);
   $("loading").classList.add("done");
+
+  // デフォルトで現在地を取得する。フィルタ指定付き流入では指定エリアを見に来ているので、
+  // 許可ダイアログは出さず、すでに許可済みのときだけ位置ドットを表示する
+  if (!paramEntry) {
+    requestLocation(true);
+  } else if ("permissions" in navigator) {
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((st) => {
+        if (st.state === "granted") requestLocation(true);
+      })
+      .catch(() => {});
+  }
 }
 
 boot().catch((err) => {

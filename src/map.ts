@@ -32,9 +32,46 @@ export function createMap(el: HTMLElement): L.Map {
   return map;
 }
 
+/** マップ右下（ズームボタンの上）に置く、現在地へ移動するボタン。ツールチップ更新用に要素を返す */
+export function addMyLocationControl(map: L.Map, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "my-location-btn";
+  // 照準アイコン（Googleマップ風のクロスヘア）
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">' +
+    '<path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A8.99 8.99 0 0 0 13 3.06V1h-2v2.06A8.99 8.99 0 0 0 3.06 11H1v2h2.06A8.99 8.99 0 0 0 11 20.94V23h2v-2.06A8.99 8.99 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>';
+  const Ctl = L.Control.extend({
+    onAdd: () => {
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.disableScrollPropagation(btn);
+      btn.addEventListener("click", onClick);
+      return btn;
+    },
+  });
+  new Ctl({ position: "bottomright" }).addTo(map);
+  return btn;
+}
+
 function priceYen(price: string): string {
   if (!price || price.toLowerCase() === "none") return "";
   return price.replaceAll("$", "¥");
+}
+
+/**
+ * E.164（+81…）を日本の慣習的な表記に整形する。
+ * 掲載エリアの市外局番（03/06/075/072/0742系）と携帯・IP・フリーダイヤルをカバーし、
+ * 判別できない番号はハイフンなしの国内形式に落とす
+ */
+export function formatJaPhone(phone: string): string {
+  if (!phone.startsWith("+81")) return phone;
+  const n = phone.slice(3);
+  if (/^(90|80|70|50)/.test(n) && n.length === 10) return `0${n.slice(0, 2)}-${n.slice(2, 6)}-${n.slice(6)}`;
+  if (n.startsWith("120") && n.length === 9) return `0120-${n.slice(3, 6)}-${n.slice(6)}`;
+  if (/^[36]/.test(n) && n.length === 9) return `0${n[0]}-${n.slice(1, 5)}-${n.slice(5)}`;
+  if (/^7[2357]/.test(n) && n.length === 9) return `0${n.slice(0, 2)}-${n.slice(2, 5)}-${n.slice(5)}`;
+  if (/^74/.test(n) && n.length === 9) return `0${n.slice(0, 3)}-${n.slice(3, 5)}-${n.slice(5)}`;
+  return `0${n}`;
 }
 
 /** 外部データ由来のURLは http/https 以外を捨てる（javascript: 等の混入対策） */
@@ -94,6 +131,11 @@ export function buildPopupHtml(
     parts.push(`<p class="popup-note">${escapeHtml(t("popupNotInGuideNote"))}</p>`);
   }
   if (r.address) parts.push(`<p class="popup-address">${escapeHtml(r.address)}</p>`);
+  if (r.phone && /^\+?[\d]+$/.test(r.phone)) {
+    parts.push(
+      `<p class="popup-phone">📞 <a href="tel:${escapeHtml(r.phone)}">${escapeHtml(formatJaPhone(r.phone))}</a></p>`,
+    );
+  }
   if (f.origin) {
     const m = distanceMeters(f.origin, r);
     parts.push(
@@ -227,7 +269,8 @@ export function createMarkerLayer(
 }
 
 export interface OriginLayer {
-  set(origin: Origin, minutes: number | null): void;
+  /** moveMap=false なら位置ドットの描画だけ行い、視点は動かさない */
+  set(origin: Origin, minutes: number | null, moveMap?: boolean): void;
   clear(): void;
 }
 
@@ -236,7 +279,7 @@ export function createOriginLayer(map: L.Map): OriginLayer {
   let radius: L.Circle | null = null;
 
   return {
-    set(origin: Origin, minutes: number | null): void {
+    set(origin: Origin, minutes: number | null, moveMap = true): void {
       this.clear();
       dot = L.circleMarker([origin.lat, origin.lng], {
         radius: 7,
@@ -246,9 +289,12 @@ export function createOriginLayer(map: L.Map): OriginLayer {
         fillOpacity: 1,
       }).addTo(map);
       dot.bindTooltip("現在地", { direction: "top" });
+      if (!moveMap) return;
+      map.stop(); // 初期表示のfitBoundsアニメーション中でも現在地への移動を優先する
       if (minutes !== null) {
+        const meters = minutes * WALK_METERS_PER_MINUTE;
         radius = L.circle([origin.lat, origin.lng], {
-          radius: minutes * WALK_METERS_PER_MINUTE,
+          radius: meters,
           color: "#1a6fb8",
           weight: 1.5,
           dashArray: "6 6",
@@ -256,7 +302,9 @@ export function createOriginLayer(map: L.Map): OriginLayer {
           fillOpacity: 0.06,
           interactive: false,
         }).addTo(map);
-        map.fitBounds(radius.getBounds(), { padding: [30, 30] });
+        // Circle.getBounds()はピクセル座標依存で、ズームアニメーション中は古い座標系で
+        // 計算され得るため、地理座標から直接算出する
+        map.fitBounds(L.latLng(origin.lat, origin.lng).toBounds(meters * 2), { padding: [30, 30] });
       } else {
         map.flyTo([origin.lat, origin.lng], Math.max(map.getZoom(), 14));
       }
