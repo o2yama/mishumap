@@ -703,9 +703,10 @@ body {
     transform: none;
   }
 
-  /* フローティングボタンに最下部の項目が隠れないようにする */
-  .sidebar .credits {
-    padding-bottom: 74px;
+  /* シートを開くと下端のバーになるので、その分だけスクロール領域の末尾に余白を作る。
+     これがないと最後の項目がバーの下に隠れたまま出てこない */
+  .sidebar.open {
+    padding-bottom: 64px;
   }
 
   .mobile-toggle {
@@ -725,6 +726,19 @@ body {
     padding: 12px 26px;
     box-shadow: 0 4px 16px rgba(143, 22, 34, 0.45);
     cursor: pointer;
+  }
+
+  /* シートを開いている間は、丸いボタンのままだと絞り込みチップの上に浮いて中身を覆い隠す。
+     不透明な全幅バーとして下端に固定し、隠れる領域を境界のはっきりした帯に閉じ込める */
+  .sidebar.open ~ .map-wrap .mobile-toggle {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    transform: none;
+    border-radius: 0;
+    padding: 15px 26px calc(15px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -5px 18px rgba(43, 36, 28, 0.22);
   }
 
   .legend {
