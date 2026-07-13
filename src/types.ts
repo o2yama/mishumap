@@ -44,7 +44,8 @@ export interface Origin {
 export interface FilterState {
   /** 表示する区分（ミシュランの生の区分名） */
   awards: Set<string>;
-  year: number;
+  /** 表示する掲載年。複数選ぶと「いずれかの年に掲載」の意味になる（空なら該当なし） */
+  years: Set<number>;
   /** '' = 全エリア */
   area: string;
   categories: Set<string>;

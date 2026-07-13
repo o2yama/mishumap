@@ -9,7 +9,9 @@ const STORAGE_KEY = "bgm-last-search";
  */
 export interface SavedSearch {
   awards?: string[];
+  /** 複数年対応前に保存された単一年。読み込み時のみ解釈する（新規保存はしない） */
   year?: number;
+  years?: number[];
   area?: string;
   categories?: string[];
   query?: string;
@@ -31,7 +33,7 @@ export function loadSavedSearch(): SavedSearch | null {
 export function saveSearch(f: FilterState): void {
   const data: SavedSearch = {
     awards: [...f.awards],
-    year: f.year,
+    years: [...f.years],
     area: f.area,
     categories: [...f.categories],
     query: f.query,

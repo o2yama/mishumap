@@ -32,17 +32,28 @@ export interface EffectiveAward {
 }
 
 /**
- * 選択年の掲載区分。includePast時は「選択年より前の最後の掲載」まで遡って返す。
+ * 選択年の掲載区分。年を複数選んだ場合は「いずれかの年に掲載」を満たせばよく、
+ * 表示する区分は選択年のうち最も新しい掲載のものを採る（同じ店の最新の格付けを見せるため）。
+ * includePast時は、選択年のうち最も新しい年より前の最後の掲載まで遡る。
  * どの年にも記録がなければ undefined
  */
-export function effectiveAward(r: Restaurant, f: Pick<FilterState, "year" | "includePast">): EffectiveAward | undefined {
-  const direct = r.awards[String(f.year)];
-  if (direct) return { award: direct, year: f.year, isPast: false };
-  if (!f.includePast) return undefined;
+export function effectiveAward(
+  r: Restaurant,
+  f: Pick<FilterState, "years" | "includePast">,
+): EffectiveAward | undefined {
+  let newest = -1;
+  for (const y of f.years) {
+    if (r.awards[String(y)] && y > newest) newest = y;
+  }
+  if (newest >= 0) return { award: r.awards[String(newest)], year: newest, isPast: false };
+  if (!f.includePast || f.years.size === 0) return undefined;
+
+  // 選択年に掲載がない店は、選択範囲の最新年より前の最後の掲載から表示する
+  const ceiling = Math.max(...f.years);
   let latest = -1;
   for (const y of Object.keys(r.awards)) {
     const n = Number(y);
-    if (n < f.year && n > latest) latest = n;
+    if (n < ceiling && n > latest) latest = n;
   }
   if (latest < 0) return undefined;
   return { award: r.awards[String(latest)], year: latest, isPast: true };

@@ -105,7 +105,10 @@ async function boot(): Promise<void> {
     .split(",")
     .map((s) => s.trim())
     .filter((c) => data.categories.some((k) => k.id === c));
-  const paramYear = data.years.includes(Number(params.get("year"))) ? Number(params.get("year")) : undefined;
+  const paramYears = (params.get("year") ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((y) => data.years.includes(y));
   const paramQuery = params.get("q") ?? undefined;
 
   // 検索状態は apply() のたびに replaceState でURLへ書き戻す（共有・ブラウザバック用）。
@@ -115,7 +118,7 @@ async function boot(): Promise<void> {
   /** SEO一覧ページ等、外部リンクからのフィルタ指定付き流入 */
   const paramEntry =
     !selfWritten &&
-    (Boolean(paramArea) || paramAwards.length > 0 || paramCategories.length > 0 || paramYear !== undefined || Boolean(paramQuery));
+    (Boolean(paramArea) || paramAwards.length > 0 || paramCategories.length > 0 || paramYears.length > 0 || Boolean(paramQuery));
 
   // 前回の検索状態を復元する。ただしフィルタ指定付き流入ではリンクが示す一覧をそのまま見せるべき
   // なので、保存状態（検索語や区分の絞り込み）は一切適用しない。
@@ -125,8 +128,9 @@ async function boot(): Promise<void> {
   const savedAwards = saved?.awards?.filter((a) => knownAwards.has(a));
   const savedCategories = saved?.categories?.filter((c) => data.categories.some((k) => k.id === c));
   const savedArea = data.areas.some((a) => a.id === saved?.area) ? saved?.area : undefined;
-  const savedYear =
-    typeof saved?.year === "number" && data.years.includes(saved.year) ? saved.year : undefined;
+  // years は複数年対応で追加した形式。旧データ（単一の year）も引き継げるようにする
+  const savedYears = (saved?.years ?? (typeof saved?.year === "number" ? [saved.year] : []))
+    .filter((y) => data.years.includes(y));
   /** 前回の徒歩距離。undefined=未使用（デフォルト15分を適用）、null=「距離指定なし」を選んでいた */
   const savedWalk =
     saved && "walkMinutes" in saved && (saved.walkMinutes === null || WALK_CHOICES.includes(saved.walkMinutes as number))
@@ -136,7 +140,7 @@ async function boot(): Promise<void> {
 
   const state: FilterState = {
     awards: new Set(paramAwards.length ? paramAwards : (savedAwards ?? ["3 Stars", "2 Stars", "1 Star"])),
-    year: paramYear ?? savedYear ?? data.latestYear,
+    years: new Set(paramYears.length ? paramYears : savedYears.length ? savedYears : [data.latestYear]),
     area: paramArea ?? savedArea ?? "",
     categories: new Set(
       paramCategories.length ? paramCategories : (savedCategories ?? data.categories.map((c) => c.id)),
@@ -226,20 +230,22 @@ async function boot(): Promise<void> {
   // 隣接年を踏みながら再描画が走るため、飛ばして選べるチップのほうが速い
   const yearChips = $("year-chips");
   const yearHint = $("year-hint");
-  const yearButtons = new Map<number, HTMLButtonElement>();
   // 最新年を先頭に置く。ほとんどのユーザーは最新版しか見ないので探させない
   for (const y of [...data.years].sort((a, b) => b - a)) {
-    const btn = makeChip(() => `${y}${t("yearSuffix")}`, "#b8860b", y === state.year, () => selectYear(y));
-    yearChips.appendChild(btn);
-    yearButtons.set(y, btn);
+    yearChips.appendChild(
+      makeChip(() => `${y}${t("yearSuffix")}`, "#b8860b", state.years.has(y), (on) => {
+        on ? state.years.add(y) : state.years.delete(y);
+        renderYearHint();
+        apply();
+      }),
+    );
   }
-  function selectYear(y: number): void {
-    state.year = y;
-    for (const [year, btn] of yearButtons) btn.classList.toggle("on", year === y);
-    yearHint.classList.toggle("hidden", y === data.latestYear);
-    apply();
+  /** 最新年以外を含むときだけ、年次データの欠損を注記する */
+  function renderYearHint(): void {
+    const onlyLatest = state.years.size === 1 && state.years.has(data.latestYear);
+    yearHint.classList.toggle("hidden", onlyLatest);
   }
-  yearHint.classList.toggle("hidden", state.year === data.latestYear);
+  renderYearHint();
 
   // ---- 過去掲載トグル ----
   const pastToggle = $<HTMLInputElement>("past-toggle");
@@ -562,7 +568,10 @@ async function boot(): Promise<void> {
       );
     }
     if (state.categories.size !== data.categories.length) p.set("cat", [...state.categories].join(","));
-    if (state.year !== data.latestYear) p.set("year", String(state.year));
+    // 既定（最新年のみ）と違うときだけ書く。複数年はカンマ区切り
+    if (!(state.years.size === 1 && state.years.has(data.latestYear))) {
+      p.set("year", [...state.years].sort((a, b) => b - a).join(","));
+    }
     if (state.query) p.set("q", state.query);
     if (state.includePast) p.set("past", "1");
     const qs = p.toString();
