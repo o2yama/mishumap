@@ -8,17 +8,43 @@
       name="description"
       content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"
     />
+    <link rel="canonical" href="https://mishumap.com/ja/" />
     <link rel="icon" type="image/svg+xml" href="../icon.svg" />
     <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
     <link rel="alternate" hreflang="ja" href="https://mishumap.com/ja/" />
     <link rel="alternate" hreflang="en" href="https://mishumap.com/en/" />
     <link rel="alternate" hreflang="x-default" href="https://mishumap.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ミシュマップ" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:url" content="https://mishumap.com/ja/" />
+    <meta property="og:title" content="ミシュマップ — 日本のミシュラン掲載店を地図で探す" />
+    <meta
+      property="og:description"
+      content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"
+    />
+    <meta property="og:image" content="https://mishumap.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- 全1489件のJSONはJSのパース完了を待たずに取りに行く（直列化するとピン表示が約1.8秒遅れる） -->
+    <link rel="preload" as="fetch" href="/data/restaurants.json" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- 日本語フォントのCSSは約550KB（unicode-rangeが約120分割）あり、同期読み込みするとFCPを1.7秒ブロックする。
+         描画を止めずに読ませ、字形はdisplay=swapで後追いさせる -->
     <link
       href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
   </head>
   <body>
     <div id="app">
@@ -28,6 +54,7 @@
           <div>
             <h1 data-i18n="appTitle">ミシュマップ</h1>
           </div>
+          <button class="share-btn" id="share-btn" type="button" data-i18n="share">共有</button>
         </header>
 
         <section class="panel" style="--stagger: 1">

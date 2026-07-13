@@ -291,9 +291,21 @@ function renderPage({ lang, area, award, rs }) {
 <link rel="alternate" hreflang="ja" href="${pageUrl("ja", area.slug, award?.slug)}" />
 <link rel="alternate" hreflang="en" href="${pageUrl("en", area.slug, award?.slug)}" />
 <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="${lang === "ja" ? "ミシュマップ" : "MishuMap"}" />
+<meta property="og:locale" content="${lang === "ja" ? "ja_JP" : "en_US"}" />
+<meta property="og:url" content="${self}" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(meta)}" />
+<meta property="og:image" content="${SITE}/og${lang === "ja" ? "" : "-en"}.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+<!-- 日本語フォントのCSSは大きくFCPをブロックするため、描画を止めずに読ませる -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
 <style>${CSS}</style>
 <script type="application/ld+json">${itemList}</script>
 <script type="application/ld+json">${faqLd}</script>
@@ -402,9 +414,21 @@ function renderChangesPage({ lang, area, diff }) {
 <link rel="alternate" hreflang="ja" href="${SITE}/ja/${area.slug}/changes-${YEAR}/" />
 <link rel="alternate" hreflang="en" href="${SITE}/en/${area.slug}/changes-${YEAR}/" />
 <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="${lang === "ja" ? "ミシュマップ" : "MishuMap"}" />
+<meta property="og:locale" content="${lang === "ja" ? "ja_JP" : "en_US"}" />
+<meta property="og:url" content="${self}" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(s.chMeta(areaName, newcomers.length, changed.length, dropped.length))}" />
+<meta property="og:image" content="${SITE}/og${lang === "ja" ? "" : "-en"}.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+<!-- 日本語フォントのCSSは大きくFCPをブロックするため、描画を止めずに読ませる -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
 <style>${CSS}</style>
 <script type="application/ld+json">${itemList}</script>
 </head>

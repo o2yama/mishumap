@@ -61,6 +61,35 @@ body {
   background: linear-gradient(180deg, rgba(187, 31, 47, 0.06), transparent 70%);
 }
 
+/* 検索条件はURLに載るので、この1タップが「今見ている絞り込み」の共有になる */
+.share-btn {
+  margin-left: auto;
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red-deep);
+  background: rgba(247, 241, 229, 0.6);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.share-btn:hover:not(:disabled) {
+  background: var(--paper-deep);
+  border-color: var(--red);
+}
+
+.share-btn:disabled {
+  cursor: default;
+  color: var(--ink-soft);
+}
+
 .mark {
   width: 46px;
   height: auto;

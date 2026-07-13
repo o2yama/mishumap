@@ -90,14 +90,30 @@ async function boot(): Promise<void> {
     "1-star": "1 Star",
     selected: "Selected Restaurants",
   };
+  const AWARD_SLUG_BY_ID: Record<string, string> = Object.fromEntries(
+    Object.entries(AWARD_SLUGS).map(([slug, id]) => [id, slug]),
+  );
   const params = new URLSearchParams(location.search);
   const paramAwards = (params.get("awards") ?? "")
     .split(",")
     .map((s) => AWARD_SLUGS[s.trim()])
     .filter(Boolean);
   const paramArea = data.areas.find((a) => a.id.toLowerCase() === (params.get("area") ?? "").toLowerCase())?.id;
-  /** SEO一覧ページ等からのフィルタ指定付き流入 */
-  const paramEntry = Boolean(paramArea) || paramAwards.length > 0;
+  const paramCategories = (params.get("cat") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((c) => data.categories.some((k) => k.id === c));
+  const paramYear = data.years.includes(Number(params.get("year"))) ? Number(params.get("year")) : undefined;
+  const paramQuery = params.get("q") ?? undefined;
+
+  // 検索状態は apply() のたびに replaceState でURLへ書き戻す（共有・ブラウザバック用）。
+  // そのURLをリロードするとパラメータ付きで開くことになるため、SEO一覧ページからの流入と
+  // 見分けがつかなくなる。history.state はリロードしても残るので、これを自作URLの目印にする
+  const selfWritten = (history.state as { mishu?: boolean } | null)?.mishu === true;
+  /** SEO一覧ページ等、外部リンクからのフィルタ指定付き流入 */
+  const paramEntry =
+    !selfWritten &&
+    (Boolean(paramArea) || paramAwards.length > 0 || paramCategories.length > 0 || paramYear !== undefined || Boolean(paramQuery));
 
   // 前回の検索状態を復元する。ただしフィルタ指定付き流入ではリンクが示す一覧をそのまま見せるべき
   // なので、保存状態（検索語や区分の絞り込み）は一切適用しない。
@@ -118,13 +134,15 @@ async function boot(): Promise<void> {
 
   const state: FilterState = {
     awards: new Set(paramAwards.length ? paramAwards : (savedAwards ?? ["3 Stars", "2 Stars", "1 Star"])),
-    year: savedYear ?? data.latestYear,
+    year: paramYear ?? savedYear ?? data.latestYear,
     area: paramArea ?? savedArea ?? "",
-    categories: new Set(savedCategories ?? data.categories.map((c) => c.id)),
-    query: typeof saved?.query === "string" ? saved.query : "",
+    categories: new Set(
+      paramCategories.length ? paramCategories : (savedCategories ?? data.categories.map((c) => c.id)),
+    ),
+    query: paramQuery ?? (typeof saved?.query === "string" ? saved.query : ""),
     origin: null,
     walkMinutes: null,
-    includePast: saved?.includePast === true,
+    includePast: paramEntry ? params.get("past") === "1" : saved?.includePast === true,
   };
 
   const map = createMap($("map"));
@@ -500,14 +518,59 @@ async function boot(): Promise<void> {
     });
   }
 
+  // ---- 共有 ----
+  const shareBtn = $("share-btn") as HTMLButtonElement;
+  shareBtn.addEventListener("click", async () => {
+    const url = location.href;
+    if (navigator.share) {
+      // シェアシートを閉じただけの場合も例外になるため、失敗は無視してよい
+      await navigator.share({ title: document.title, url }).catch(() => {});
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      shareBtn.textContent = t("shareCopied");
+      shareBtn.disabled = true;
+      setTimeout(() => {
+        shareBtn.textContent = t("share");
+        shareBtn.disabled = false;
+      }, 1600);
+    } catch {
+      window.prompt(t("share"), url); // クリップボードAPIが使えない環境向けの最後の手段
+    }
+  });
+
   // ---- 反映 ----
   let lastFiltered: Restaurant[] = [];
+
+  /**
+   * 現在の検索条件をURLに書き戻す。「渋谷のビブグルマン」のような検索結果を
+   * そのままシェアでき、ブラウザバックも効くようにするため。
+   * 既定値と同じ項目は書かず、共有されるURLを短く保つ
+   */
+  function syncUrl(): void {
+    const p = new URLSearchParams();
+    if (state.area) p.set("area", state.area.toLowerCase());
+    if (state.awards.size !== Object.keys(AWARD_SLUGS).length) {
+      p.set(
+        "awards",
+        [...state.awards].map((a) => AWARD_SLUG_BY_ID[a]).filter(Boolean).join(","),
+      );
+    }
+    if (state.categories.size !== data.categories.length) p.set("cat", [...state.categories].join(","));
+    if (state.year !== data.latestYear) p.set("year", String(state.year));
+    if (state.query) p.set("q", state.query);
+    if (state.includePast) p.set("past", "1");
+    const qs = p.toString();
+    history.replaceState({ mishu: true }, "", qs ? `${location.pathname}?${qs}` : location.pathname);
+  }
 
   function apply(): void {
     lastFiltered = applyFilters(data.restaurants, state);
     markerLayer.rebuild(lastFiltered, state);
     renderList(lastFiltered);
     saveSearch(state); // 次回起動時に同じ検索状態から再開できるようにする
+    syncUrl();
   }
 
   function fitToResults(animate = true): void {
