@@ -221,22 +221,25 @@ async function boot(): Promise<void> {
     );
   }
 
-  // ---- 年スライダー ----
-  const slider = $<HTMLInputElement>("year-slider");
-  const yearDisplay = $("year-display");
+  // ---- 年チップ ----
+  // 掲載年は他の絞り込みと同じチップで選ぶ。スライダーはトラックが細く親指で掴みにくい上、
+  // 隣接年を踏みながら再描画が走るため、飛ばして選べるチップのほうが速い
+  const yearChips = $("year-chips");
   const yearHint = $("year-hint");
-  slider.min = String(Math.min(...data.years));
-  slider.max = String(Math.max(...data.years));
-  slider.value = String(state.year);
-  const renderYear = () => {
-    yearDisplay.textContent = `${state.year}${t("yearSuffix")}`;
-    yearHint.classList.toggle("hidden", state.year === data.latestYear);
-  };
-  slider.addEventListener("input", () => {
-    state.year = Number(slider.value);
-    renderYear();
+  const yearButtons = new Map<number, HTMLButtonElement>();
+  // 最新年を先頭に置く。ほとんどのユーザーは最新版しか見ないので探させない
+  for (const y of [...data.years].sort((a, b) => b - a)) {
+    const btn = makeChip(() => `${y}${t("yearSuffix")}`, "#b8860b", y === state.year, () => selectYear(y));
+    yearChips.appendChild(btn);
+    yearButtons.set(y, btn);
+  }
+  function selectYear(y: number): void {
+    state.year = y;
+    for (const [year, btn] of yearButtons) btn.classList.toggle("on", year === y);
+    yearHint.classList.toggle("hidden", y === data.latestYear);
     apply();
-  });
+  }
+  yearHint.classList.toggle("hidden", state.year === data.latestYear);
 
   // ---- 過去掲載トグル ----
   const pastToggle = $<HTMLInputElement>("past-toggle");
@@ -503,7 +506,6 @@ async function boot(): Promise<void> {
     queryInput.placeholder = t("searchPlaceholder");
     for (const btn of langButtons) btn.classList.toggle("on", btn.dataset.lang === getLang());
     for (const update of labelUpdaters) update();
-    renderYear();
     renderWalkOptions();
     renderLocateBtn();
     renderStatus();

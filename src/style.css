@@ -224,52 +224,7 @@ body {
   opacity: 0.9;
 }
 
-/* ---------- 年スライダー ---------- */
-
-.year-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.year-display {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 30px;
-  color: var(--red-deep);
-  min-width: 84px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-input[type="range"] {
-  flex: 1;
-  appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--line), var(--red));
-  outline-offset: 4px;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #d3313f, var(--red-deep));
-  border: 2.5px solid var(--paper);
-  box-shadow: 0 1px 5px rgba(143, 22, 34, 0.5);
-  cursor: grab;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--red);
-  border: 2.5px solid var(--paper);
-  cursor: grab;
-}
+/* ---------- 注記・トグル ---------- */
 
 .hint {
   margin: 8px 0 0;
