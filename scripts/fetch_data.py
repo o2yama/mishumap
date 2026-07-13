@@ -97,6 +97,31 @@ def query_chunked(canned: str, **params) -> list[dict]:
     return rows
 
 
+# ミシュラン公式の価格帯（日本）。ドリンク別・フルコース1食あたりの平均額。
+# https://guide.michelin.com/en/restaurants-price-ranges-index
+#   ¥ = 5,000円未満 / ¥¥ = 5,000〜10,000 / ¥¥¥ = 10,000〜30,000 / ¥¥¥¥ = 30,000超
+PRICE_BANDS = (5_000, 10_000, 30_000)
+
+
+def price_level(raw: str) -> int:
+    """価格表記を1〜4に正規化する。判定できなければ0。
+
+    一次データは「$$$」「¥¥¥」「4,000 - 6,000 JPY」の3形式が混在している。
+    記号はそのまま段数を使い、金額レンジは中央値で帯に当てはめる
+    （記号の定義が「平均額」なので、レンジの中央が定義に最も近い）。
+    """
+    p = (raw or "").strip()
+    if not p or p.lower() == "none":
+        return 0
+    if re.fullmatch(r"[$¥]+", p):
+        return min(len(p), 4)
+    amounts = [int(n.replace(",", "")) for n in re.findall(r"[\d,]+", p)]
+    if not amounts:
+        return 0
+    mid = (min(amounts) + max(amounts)) / 2
+    return sum(mid >= b for b in PRICE_BANDS) + 1
+
+
 def norm_key(name: str, location: str) -> tuple[str, str]:
     name = unicodedata.normalize("NFKC", name)
     return (re.sub(r"\s+", " ", name).strip().lower(), location.strip().lower())
@@ -242,8 +267,11 @@ def main() -> None:
         entry["addressJa"] = convert_addr(entry["address"]) if entry["address"] else ""
         if entry["addressJa"]:
             converted += 1
+        entry["priceLevel"] = price_level(entry["price"])
     with_addr = sum(1 for e in all_entries if e["address"])
     print(f"  address localized: {converted}/{with_addr}")
+    leveled = sum(1 for e in all_entries if e["priceLevel"])
+    print(f"  price normalized : {leveled}/{len(all_entries)}")
 
     # --- 6. 出力 ---
     dropped_no_coords = [e["name"] for e in all_entries if e["lat"] is None]

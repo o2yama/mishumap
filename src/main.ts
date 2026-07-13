@@ -2,7 +2,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "./style.css";
 import { AWARD_STYLES, awardLabel, awardShort, awardStyle } from "./awards";
-import { cuisineAliasText } from "./cuisineAliases";
+import { cuisineAliasText, cuisineLabelJa } from "./cuisineAliases";
 import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
 import { ensureDetails } from "./details";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
@@ -21,6 +21,9 @@ const $ = <T extends HTMLElement>(id: string): T => {
 const AWARD_CHIP_ORDER = ["3 Stars", "2 Stars", "1 Star", "Selected Restaurants", "Bib Gourmand"];
 const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Nara"];
 const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
+/** ジャンルチップに出す最小軒数。全58種を並べると選べないので、実用的な数に絞る */
+const CUISINE_CHIP_MIN = 20;
+const PRICE_LEVELS = [1, 2, 3, 4];
 const DEFAULT_WALK = 15;
 /** GeolocationPositionError.code → 表示文言 */
 const GEO_ERROR_KEYS: Record<number, StringKey> = {
@@ -55,6 +58,8 @@ async function boot(): Promise<void> {
   };
   // エリアIDは英語地名そのものなので、英語UIではIDを表示する
   const areaLabel = (id: string): string => (getLang() === "ja" ? (areaJaLabels.get(id) ?? id) : id);
+  // ジャンルは原典が英語。日本語UIでは代表的な日本語名を出す
+  const cuisineLabel = (c: string): string => (getLang() === "ja" ? cuisineLabelJa(c) : c);
 
   // 店名・住所がローマ字のため、日英両方の語彙を検索テキストに含める
   // （表示言語に関わらず「和食」でも "Western" でもヒットさせる）
@@ -108,6 +113,19 @@ async function boot(): Promise<void> {
     .map((s) => Number(s.trim()))
     .filter((y) => data.years.includes(y));
   const paramQuery = params.get("q") ?? undefined;
+  const paramPrices = (params.get("price") ?? "")
+    .split(",")
+    .map((v) => Number(v.trim()))
+    .filter((v) => PRICE_LEVELS.includes(v));
+
+  // ジャンルはURL用にスラッグ化する（"Unagi / Freshwater Eel" → "unagi-freshwater-eel"）
+  const cuisineSlug = (c: string): string =>
+    c.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const cuisineBySlug = new Map(data.restaurants.filter((r) => r.cuisine).map((r) => [cuisineSlug(r.cuisine), r.cuisine]));
+  const paramCuisines = (params.get("cuisine") ?? "")
+    .split(",")
+    .map((v) => cuisineBySlug.get(v.trim()))
+    .filter((v): v is string => Boolean(v));
 
   // 検索状態は apply() のたびに replaceState でURLへ書き戻す（共有・ブラウザバック用）。
   // そのURLをリロードするとパラメータ付きで開くことになるため、SEO一覧ページからの流入と
@@ -116,7 +134,13 @@ async function boot(): Promise<void> {
   /** SEO一覧ページ等、外部リンクからのフィルタ指定付き流入 */
   const paramEntry =
     !selfWritten &&
-    (Boolean(paramArea) || paramAwards.length > 0 || paramCategories.length > 0 || paramYears.length > 0 || Boolean(paramQuery));
+    (Boolean(paramArea) ||
+      paramAwards.length > 0 ||
+      paramCategories.length > 0 ||
+      paramYears.length > 0 ||
+      paramCuisines.length > 0 ||
+      paramPrices.length > 0 ||
+      Boolean(paramQuery));
 
   // 前回の検索状態を復元する。ただしフィルタ指定付き流入ではリンクが示す一覧をそのまま見せるべき
   // なので、保存状態（検索語や区分の絞り込み）は一切適用しない。
@@ -125,6 +149,8 @@ async function boot(): Promise<void> {
   const knownAwards = new Set(Object.keys(AWARD_STYLES));
   const savedAwards = saved?.awards?.filter((a) => knownAwards.has(a));
   const savedCategories = saved?.categories?.filter((c) => data.categories.some((k) => k.id === c));
+  const savedCuisines = saved?.cuisines?.filter((c) => cuisineBySlug.has(cuisineSlug(c))) ?? [];
+  const savedPrices = saved?.priceLevels?.filter((v) => PRICE_LEVELS.includes(v)) ?? [];
   const savedArea = data.areas.some((a) => a.id === saved?.area) ? saved?.area : undefined;
   // years は複数年対応で追加した形式。旧データ（単一の year）も引き継げるようにする
   const savedYears = (saved?.years ?? (typeof saved?.year === "number" ? [saved.year] : []))
@@ -137,6 +163,8 @@ async function boot(): Promise<void> {
     categories: new Set(
       paramCategories.length ? paramCategories : (savedCategories ?? data.categories.map((c) => c.id)),
     ),
+    cuisines: new Set(paramCuisines.length ? paramCuisines : savedCuisines),
+    priceLevels: new Set(paramPrices.length ? paramPrices : savedPrices),
     query: paramQuery ?? (typeof saved?.query === "string" ? saved.query : ""),
     origin: null,
     walkMinutes: null,
@@ -211,6 +239,38 @@ async function boot(): Promise<void> {
     categoryChips.appendChild(
       makeChip(() => categoryLabel(cat.id), "#6d6152", state.categories.has(cat.id), (on) => {
         on ? state.categories.add(cat.id) : state.categories.delete(cat.id);
+        apply();
+      }),
+    );
+  }
+
+  // ---- ジャンルチップ ----
+  // 「寿司が食べたい」に5分類（和食/洋食/…）は粗すぎる。実データから多い順に並べる
+  const cuisineCounts = new Map<string, number>();
+  for (const r of data.restaurants) {
+    if (r.cuisine) cuisineCounts.set(r.cuisine, (cuisineCounts.get(r.cuisine) ?? 0) + 1);
+  }
+  const topCuisines = [...cuisineCounts.entries()]
+    .filter(([, n]) => n >= CUISINE_CHIP_MIN)
+    .sort((a, b) => b[1] - a[1])
+    .map(([c]) => c);
+
+  const cuisineChips = $("cuisine-chips");
+  for (const c of topCuisines) {
+    cuisineChips.appendChild(
+      makeChip(() => cuisineLabel(c), "#1a6fb8", state.cuisines.has(c), (on) => {
+        on ? state.cuisines.add(c) : state.cuisines.delete(c);
+        apply();
+      }),
+    );
+  }
+
+  // ---- 価格帯チップ ----
+  const priceChips = $("price-chips");
+  for (const lv of PRICE_LEVELS) {
+    priceChips.appendChild(
+      makeChip(() => "¥".repeat(lv), "#b8860b", state.priceLevels.has(lv), (on) => {
+        on ? state.priceLevels.add(lv) : state.priceLevels.delete(lv);
         apply();
       }),
     );
@@ -546,6 +606,8 @@ async function boot(): Promise<void> {
     if (!(state.years.size === 1 && state.years.has(data.latestYear))) {
       p.set("year", [...state.years].sort((a, b) => b - a).join(","));
     }
+    if (state.cuisines.size) p.set("cuisine", [...state.cuisines].map(cuisineSlug).join(","));
+    if (state.priceLevels.size) p.set("price", [...state.priceLevels].sort().join(","));
     if (state.query) p.set("q", state.query);
     const qs = p.toString();
     history.replaceState({ mishu: true }, "", qs ? `${location.pathname}?${qs}` : location.pathname);

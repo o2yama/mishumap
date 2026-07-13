@@ -14,6 +14,8 @@ export interface SavedSearch {
   years?: number[];
   area?: string;
   categories?: string[];
+  cuisines?: string[];
+  priceLevels?: number[];
   query?: string;
 }
 
@@ -34,6 +36,8 @@ export function saveSearch(f: FilterState): void {
     years: [...f.years],
     area: f.area,
     categories: [...f.categories],
+    cuisines: [...f.cuisines],
+    priceLevels: [...f.priceLevels],
     query: f.query,
   };
   try {

@@ -749,3 +749,34 @@ body {
     font-size: 10px;
   }
 }
+
+/* ---------- タッチ操作時のタップ領域 ---------- */
+
+/* 指で押す端末では、チップやコントロールが31px前後しかなく押しにくい。
+   マウス環境の見た目は変えたくないので、粗いポインタのときだけ44pxを確保する */
+@media (pointer: coarse) {
+  .chip-btn {
+    min-height: 44px;
+    padding: 5px 14px;
+  }
+
+  .lang-toggle button {
+    min-height: 44px;
+    padding: 6px 16px;
+  }
+
+  #walk-select,
+  #query-input {
+    min-height: 44px;
+  }
+
+  #locate-btn {
+    min-height: 44px;
+  }
+
+  .leaflet-touch .leaflet-bar a {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+  }
+}

@@ -54,9 +54,9 @@ export function addMyLocationControl(map: L.Map, onClick: () => void): HTMLButto
   return btn;
 }
 
-function priceYen(price: string): string {
-  if (!price || price.toLowerCase() === "none") return "";
-  return price.replaceAll("$", "¥");
+/** 原典の価格表記は記号と金額レンジが混在している。正規化済みの段階で統一表示する */
+function priceYen(r: Restaurant): string {
+  return r.priceLevel > 0 ? "¥".repeat(r.priceLevel) : "";
 }
 
 /**
@@ -124,7 +124,7 @@ export function buildPopupHtml(
   );
   parts.push(`<h3>${escapeHtml(r.name)}</h3>`);
   // 英語UIではカテゴリ名とジャンル名が同語になり得る（Japanese等）ため重複を除く
-  const meta = [...new Set([categoryLabel, r.cuisine, priceYen(r.price), areaLabel].filter(Boolean))];
+  const meta = [...new Set([categoryLabel, r.cuisine, priceYen(r), areaLabel].filter(Boolean))];
   parts.push(`<p class="popup-meta">${meta.map(escapeHtml).join(" ・ ")}</p>`);
   parts.push(`<div class="popup-history">${historyChips(r, years)}</div>`);
   if (!r.inGuide) {

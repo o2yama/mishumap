@@ -68,3 +68,12 @@ export function cuisineAliasText(cuisine: string): string {
     .filter(Boolean)
     .join(" ");
 }
+
+/**
+ * チップ表示用の日本語ラベル。エイリアスの先頭語を代表名として使う
+ * （例: Sushi → "鮨 寿司 すし" の先頭 "鮨"）。対応がなければ英語名のまま。
+ */
+export function cuisineLabelJa(cuisine: string): string {
+  const alias = CUISINE_ALIASES[cuisine];
+  return alias ? alias.split(" ")[0] : cuisine;
+}

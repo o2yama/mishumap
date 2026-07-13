@@ -10,6 +10,8 @@ export interface Restaurant {
   cuisine: string;
   category: string;
   price: string;
+  /** ミシュラン公式の価格帯に正規化した1〜4（0 = 判定不可）。原典は記号と金額レンジが混在している */
+  priceLevel: number;
   /** 以下4項目は details.json から遅延読込する。ポップアップを開くまでは未定義 */
   url?: string;
   website?: string;
@@ -49,6 +51,10 @@ export interface FilterState {
   /** '' = 全エリア */
   area: string;
   categories: Set<string>;
+  /** 料理ジャンル。空 = 絞り込まない */
+  cuisines: Set<string>;
+  /** 価格帯 1〜4。空 = 絞り込まない */
+  priceLevels: Set<number>;
   query: string;
   origin: Origin | null;
   /** null = 距離での絞り込みなし */

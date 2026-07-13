@@ -75,6 +75,12 @@
         </section>
 
         <section class="panel" style="--stagger: 3">
+          <h2 data-i18n="sectionPrice">価格帯</h2>
+          <div class="chips" id="price-chips"></div>
+          <p class="hint" id="price-hint" data-i18n="priceHint"></p>
+        </section>
+
+        <section class="panel" style="--stagger: 4">
           <h2 data-i18n="sectionLocate">現在地から探す</h2>
           <div class="locate-row">
             <button id="locate-btn" type="button"></button>
@@ -83,22 +89,27 @@
           <p class="hint hidden" id="locate-status"></p>
         </section>
 
-        <section class="panel" style="--stagger: 4">
+        <section class="panel" style="--stagger: 5">
           <h2 data-i18n="sectionArea">エリア</h2>
           <div class="chips" id="area-chips"></div>
         </section>
 
-        <section class="panel" style="--stagger: 5">
+        <section class="panel" style="--stagger: 6">
           <h2 data-i18n="sectionCategory">カテゴリ</h2>
           <div class="chips" id="category-chips"></div>
         </section>
 
-        <section class="panel" style="--stagger: 6">
+        <section class="panel" style="--stagger: 7">
+          <h2 data-i18n="sectionCuisine">ジャンル</h2>
+          <div class="chips" id="cuisine-chips"></div>
+        </section>
+
+        <section class="panel" style="--stagger: 8">
           <h2 data-i18n="sectionSearch">店名・住所で検索</h2>
           <input type="search" id="query-input" />
         </section>
 
-        <section class="results" style="--stagger: 7">
+        <section class="results" style="--stagger: 9">
           <div class="results-head">
             <h2 data-i18n="sectionResults">検索結果</h2>
             <span class="count" id="result-count"></span>

@@ -48,6 +48,9 @@ export function matchesFilters(r: Restaurant, f: FilterState): boolean {
   if (!ea || !f.awards.has(ea.award)) return false;
   if (f.area && r.area !== f.area) return false;
   if (!f.categories.has(r.category)) return false;
+  // ジャンル・価格帯は未選択なら絞り込まない（全件が対象）
+  if (f.cuisines.size && !f.cuisines.has(r.cuisine)) return false;
+  if (f.priceLevels.size && !f.priceLevels.has(r.priceLevel)) return false;
 
   if (f.query) {
     const q = f.query.toLowerCase();
