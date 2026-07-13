@@ -27,7 +27,7 @@ const STRINGS = {
     walkNone: "距離指定なし",
     walkOption: "徒歩{n}分圏内",
     walkApprox: "徒歩約{n}分",
-    searchPlaceholder: "例: 鮨 / フレンチ / Shibuya",
+    searchPlaceholder: "例: 鮨 / フレンチ / 銀座",
     yearHint: "過去年はアーカイブ復元データのため掲載の欠損があります",
     yearSuffix: "年",
     includePastLabel: "過去掲載店も表示",
@@ -66,7 +66,7 @@ const STRINGS = {
     catEthnic: "アジア・エスニック",
     catOther: "創作・その他",
     credits:
-      'データ: <a href="https://github.com/ngshiheng/michelin-my-maps" target="_blank" rel="noopener">michelin-my-maps</a>（MIT） / 徒歩分数は直線距離×80m/分の近似です。<br />全軒数には過去年のみ掲載の店（閉店・掲載外れ等）を含みます。住所検索はローマ字表記（例: Shibuya）に対応しています。<br />本サイトはミシュランガイド非公式のファンメイドです。',
+      'データ: <a href="https://github.com/ngshiheng/michelin-my-maps" target="_blank" rel="noopener">michelin-my-maps</a>（MIT） / 徒歩分数は直線距離×80m/分の近似です。<br />全軒数には過去年のみ掲載の店（閉店・掲載外れ等）を含みます。住所は日本語・ローマ字のどちらでも検索できます（例: 銀座 / Ginza）。日本語住所は郵便番号データから復元したもので、店名は原典どおりローマ字表記です。<br />本サイトはミシュランガイド非公式のファンメイドです。',
   },
   en: {
     docTitle: "MishuMap — Michelin-listed restaurants in Japan",

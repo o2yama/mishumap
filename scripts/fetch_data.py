@@ -24,6 +24,8 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+from address_ja import build_converter
+
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "tmp" / "cache"
 OUT_PATH = ROOT / "public" / "data" / "restaurants.json"
@@ -226,6 +228,18 @@ def main() -> None:
     for entry in all_entries:
         if not entry["currentAward"] and entry["awards"]:
             entry["currentAward"] = entry["awards"][max(entry["awards"], key=int)]
+
+    # --- 5.5. 住所の日本語化 ---
+    # 一次データの住所は英語表記のみで、日本語UIでも「銀座」「祇園」で検索できなかった。
+    # 郵便番号から日本語表記を復元する（変換できない分は英語のまま残す）
+    convert_addr = build_converter(cached_get)
+    converted = 0
+    for entry in all_entries:
+        entry["addressJa"] = convert_addr(entry["address"]) if entry["address"] else ""
+        if entry["addressJa"]:
+            converted += 1
+    with_addr = sum(1 for e in all_entries if e["address"])
+    print(f"  address localized: {converted}/{with_addr}")
 
     # --- 6. 出力 ---
     dropped_no_coords = [e["name"] for e in all_entries if e["lat"] is None]

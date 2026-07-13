@@ -70,6 +70,7 @@ async function boot(): Promise<void> {
     r.searchText = [
       r.name,
       r.address,
+      r.addressJa, // 「銀座」「祇園」など日本語の地名で引けるようにする
       r.cuisine,
       cuisineAliasText(r.cuisine),
       categoryJaLabels.get(r.category) ?? "",

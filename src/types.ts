@@ -3,6 +3,8 @@ export interface Restaurant {
   name: string;
   area: string;
   address: string;
+  /** 郵便番号から復元した日本語表記の住所。復元できなかった一部は空 */
+  addressJa: string;
   lat: number;
   lng: number;
   cuisine: string;

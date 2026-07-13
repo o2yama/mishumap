@@ -130,7 +130,9 @@ export function buildPopupHtml(
   if (!r.inGuide) {
     parts.push(`<p class="popup-note">${escapeHtml(t("popupNotInGuideNote"))}</p>`);
   }
-  if (r.address) parts.push(`<p class="popup-address">${escapeHtml(r.address)}</p>`);
+  // 日本語UIでは日本語住所を優先する（復元できなかった店は英語表記のまま出す）
+  const address = getLang() === "ja" ? r.addressJa || r.address : r.address;
+  if (address) parts.push(`<p class="popup-address">${escapeHtml(address)}</p>`);
   if (r.phone && /^\+?[\d]+$/.test(r.phone)) {
     parts.push(
       `<p class="popup-phone">📞 <a href="tel:${escapeHtml(r.phone)}">${escapeHtml(formatJaPhone(r.phone))}</a></p>`,

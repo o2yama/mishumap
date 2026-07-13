@@ -38,6 +38,9 @@ const CATEGORY_LABELS = {
 
 const MIN_LISTINGS = 3; // これ未満のページは薄すぎるので作らない
 
+/** 日本語ページには日本語住所を出す（郵便番号から復元。復元できなかった店は英語のまま） */
+const addr = (r, lang) => (lang === "ja" ? r.addressJa || r.address : r.address);
+
 // Cloudflare Web Analytics（Cookieレス）。検索流入の着地点はこのSEOページ群なので、
 // 地図アプリ本体と同じビーコンをここにも入れる
 const BEACON = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "59d513e09571468fb1ede4011e2dd7bd"}'></script>`;
@@ -238,7 +241,7 @@ function renderPage({ lang, area, award, rs }) {
     .map(
       (r) => `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}${
         award ? "" : ` <span class="badge">${esc(awardBadge(r))}</span>`
-      }</td><td>${esc(r.cuisine)}</td><td>${esc(r.address)}</td></tr>`,
+      }</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
     .join("\n");
 
@@ -253,7 +256,7 @@ function renderPage({ lang, area, award, rs }) {
       item: {
         "@type": "Restaurant",
         name: r.name,
-        address: r.address,
+        address: addr(r, lang),
         servesCuisine: r.cuisine,
         geo: { "@type": "GeoCoordinates", latitude: r.lat, longitude: r.lng },
         ...(r.url ? { sameAs: r.url } : {}),
@@ -360,7 +363,7 @@ function renderChangesPage({ lang, area, diff }) {
   const newRows = newcomers
     .map(
       (r) =>
-        `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${badge(cur(r))}</td><td>${esc(r.cuisine)}</td><td>${esc(r.address)}</td></tr>`,
+        `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${badge(cur(r))}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
     .join("\n");
 
@@ -376,7 +379,7 @@ function renderChangesPage({ lang, area, diff }) {
   const droppedRows = dropped
     .map(
       (r) =>
-        `<tr><td><a href="${esc(gmapsUrl(r))}" rel="noopener">${esc(r.name)}</a></td><td>${badge(prev(r) ?? Object.entries(r.awards).sort((a, b) => Number(b[0]) - Number(a[0]))[0][1])}</td><td>${esc(r.cuisine)}</td><td>${esc(r.address)}</td></tr>`,
+        `<tr><td><a href="${esc(gmapsUrl(r))}" rel="noopener">${esc(r.name)}</a></td><td>${badge(prev(r) ?? Object.entries(r.awards).sort((a, b) => Number(b[0]) - Number(a[0]))[0][1])}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
     .join("\n");
 
@@ -396,7 +399,7 @@ function renderChangesPage({ lang, area, diff }) {
       item: {
         "@type": "Restaurant",
         name: r.name,
-        address: r.address,
+        address: addr(r, lang),
         servesCuisine: r.cuisine,
         geo: { "@type": "GeoCoordinates", latitude: r.lat, longitude: r.lng },
         ...(r.url ? { sameAs: r.url } : {}),
