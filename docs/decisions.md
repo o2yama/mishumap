@@ -230,3 +230,20 @@
 **タップ領域**
 - チップが31pxしかなく指で押しにくかった。`@media (pointer: coarse)` でタッチ端末のときだけ
   44px以上を確保する（マウス環境の見た目・密度は変えない）
+
+### 2026-07-13 ダブルタップ長押し＋上下ドラッグでズーム
+
+- Googleマップと同じ片手ズーム操作を追加（`enableDoubleDragZoom` in `src/map.ts`）。Leafletに標準ハンドラがない
+- **方向: 下へドラッグ = 拡大 / 上へ = 縮小**。これはデファクトで、以下の一次情報が一致している
+  - Googleマップ公式ヘルプ（Android・Wear OS）: 「下にドラッグして、ズームインします。上にドラッグして、ズームアウトします」
+  - Google Maps SDK for Android: "sliding the finger up to zoom out, or down to zoom in"
+  - Mapbox GL JS の `tap_drag_zoom.ts`: `zoomDelta = dist / 128`（画面座標は下が正 → 下で拡大）。
+    Google に合わせるため PR #9618 で意図的に反転された経緯がある
+  - 注意: Leafletプラグイン Leaflet.DoubleTapDragZoom は**既定が逆**なので流用時は要注意
+- 感度は 128px = 1ズームレベル（Mapbox GL JS と同値）
+- 実装上の注意:
+  - ドラッグ中はパン（`map.dragging`）とダブルクリックズームを止める。閾値6px未満で指を離した場合は
+    通常のダブルクリックズームとして成立させたいので、その場合は無効化しない
+  - `dblclick` は `pointerup` の直後に発火するため、`doubleClickZoom` の再有効化は1フレーム遅らせる
+  - 拡大の基点は最初に触れた地点（`setZoomAround`）。Googleマップと同じく指の下が動かない
+- 検証: 下256pxで+2レベル / 上256pxで-2レベル / 通常のダブルクリックで+1 / 通常のドラッグでパン、を確認

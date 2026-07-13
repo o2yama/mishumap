@@ -16,6 +16,88 @@ export function escapeHtml(s: string): string {
     .replaceAll('"', "&quot;");
 }
 
+/** ダブルタップとみなす間隔（ms）と、同じ位置とみなす許容ずれ（px） */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP = 30;
+/** ズーム操作とみなすドラッグ距離（px）と、1ズームレベルに相当するドラッグ量（px）。
+    128px = 1レベルは Mapbox GL JS の TapDragZoomHandler と同じ感度 */
+const ZOOM_DRAG_THRESHOLD = 6;
+const PX_PER_ZOOM = 128;
+
+/**
+ * Googleマップと同じ「ダブルタップ（ダブルクリック）したまま上下にドラッグしてズーム」を足す。
+ * Leafletに標準ハンドラがないため自前で実装する。
+ *
+ * ドラッグ中はパンとダブルクリックズームを止める。閾値未満の動きで指を離した場合は
+ * 通常のダブルクリックズームとして扱いたいので、その場合だけ元に戻す。
+ */
+function enableDoubleDragZoom(map: L.Map): void {
+  const container = map.getContainer();
+  let lastTapAt = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+
+  let pointerId: number | null = null;
+  let startY = 0;
+  let startZoom = 0;
+  let anchor: L.LatLng | null = null;
+  let dragging = false;
+
+  container.addEventListener("pointerdown", (e: PointerEvent) => {
+    if (!e.isPrimary || e.button !== 0) return;
+    const now = e.timeStamp;
+    const isDoubleTap =
+      now - lastTapAt < DOUBLE_TAP_MS &&
+      Math.abs(e.clientX - lastTapX) < DOUBLE_TAP_SLOP &&
+      Math.abs(e.clientY - lastTapY) < DOUBLE_TAP_SLOP;
+    if (!isDoubleTap) return;
+
+    pointerId = e.pointerId;
+    startY = e.clientY;
+    startZoom = map.getZoom();
+    // Googleマップと同じく、最初に触れた地点を固定したまま拡大縮小する
+    const rect = container.getBoundingClientRect();
+    anchor = map.containerPointToLatLng([e.clientX - rect.left, e.clientY - rect.top]);
+    dragging = false;
+  });
+
+  container.addEventListener(
+    "pointermove",
+    (e: PointerEvent) => {
+      if (pointerId !== e.pointerId || anchor === null) return;
+      const dy = e.clientY - startY;
+      if (!dragging) {
+        if (Math.abs(dy) < ZOOM_DRAG_THRESHOLD) return;
+        dragging = true;
+        map.dragging.disable();
+        map.doubleClickZoom.disable();
+      }
+      e.preventDefault();
+      // 下へドラッグ = 拡大。Googleマップ公式ヘルプ・Mapbox GL JS の実装と同じ向き
+      map.setZoomAround(anchor, startZoom + dy / PX_PER_ZOOM, { animate: false });
+    },
+    { passive: false },
+  );
+
+  function endGesture(e: PointerEvent): void {
+    if (pointerId !== e.pointerId) return;
+    pointerId = null;
+    anchor = null;
+    if (!dragging) return;
+    dragging = false;
+    map.dragging.enable();
+    // dblclick はこの pointerup の直後に発火するため、1フレーム待ってから戻す
+    requestAnimationFrame(() => map.doubleClickZoom.enable());
+  }
+  container.addEventListener("pointerup", (e) => {
+    endGesture(e);
+    lastTapAt = e.timeStamp;
+    lastTapX = e.clientX;
+    lastTapY = e.clientY;
+  });
+  container.addEventListener("pointercancel", endGesture);
+}
+
 export function createMap(el: HTMLElement): L.Map {
   const map = L.map(el, {
     center: JAPAN_CENTER,
@@ -23,6 +105,7 @@ export function createMap(el: HTMLElement): L.Map {
     renderer: L.canvas({ padding: 0.4 }),
     zoomControl: false,
   });
+  enableDoubleDragZoom(map);
   L.control.zoom({ position: "bottomright" }).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     attribution:
