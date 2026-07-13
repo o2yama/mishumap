@@ -4,6 +4,7 @@ import "./style.css";
 import { AWARD_STYLES, awardLabel, awardShort, awardStyle } from "./awards";
 import { cuisineAliasText } from "./cuisineAliases";
 import { applyFilters, distanceMeters, effectiveAward, walkMinutes } from "./filters";
+import { ensureDetails } from "./details";
 import { fmt, getLang, setLang, t, type Lang, type StringKey } from "./i18n";
 import { addMyLocationControl, createMap, createMarkerLayer, createOriginLayer } from "./map";
 import { loadSavedSearch, saveSearch } from "./persist";
@@ -583,6 +584,8 @@ async function boot(): Promise<void> {
 
   renderLanguage();
   apply();
+  // ピンを描き終えてから紹介文・リンク・電話を裏で取りに行く（初期ロードから外している）
+  void ensureDetails(siteRoot, data.restaurants);
   // 初期表示は非アニメーションで即座に確定させる。アニメーション中だと直後の自動現在地取得の
   // fitBoundsがLeafletに無視され、現在地へズームしないため
   fitToResults(false);

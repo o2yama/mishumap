@@ -29,7 +29,11 @@ from address_ja import build_converter
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "tmp" / "cache"
 OUT_PATH = ROOT / "public" / "data" / "restaurants.json"
+DETAILS_PATH = ROOT / "public" / "data" / "details.json"
 CATEGORY_PATH = ROOT / "data" / "cuisine_categories.json"
+
+# ポップアップを開くまで不要な項目。初期ロードから外して別ファイルにする
+DETAIL_FIELDS = ("description", "url", "website", "phone")
 
 CSV_URL = "https://raw.githubusercontent.com/ngshiheng/michelin-my-maps/main/data/michelin_my_maps.csv"
 DATASETTE = "https://michelindb.jerrynsh.com/michelin"
@@ -256,6 +260,22 @@ def main() -> None:
         seen_ids.add(eid)
         e["id"] = eid
 
+    # javascript: 等の混入対策。リンク系フィールドは http/https のみ通す
+    for e in items:
+        for field in ("url", "website"):
+            if e[field] and not e[field].startswith(("https://", "http://")):
+                e[field] = ""
+
+    # ポップアップを開いたときにしか要らない項目は別ファイルへ出す。
+    # description だけで全体の44%を占めており、これを初期ロードに含めると
+    # 地図にピンが出るまでの時間を数秒単位で悪化させる（低速回線で実測）
+    details = {
+        e["id"]: {k: e[k] for k in DETAIL_FIELDS if e.get(k)}
+        for e in items
+        if any(e.get(k) for k in DETAIL_FIELDS)
+    }
+    core = [{k: v for k, v in e.items() if k not in DETAIL_FIELDS} for e in items]
+
     areas = sorted({e["area"] for e in items})
     out = {
         "generatedAt": date.today().isoformat(),
@@ -265,19 +285,16 @@ def main() -> None:
         "latestYear": LATEST_YEAR,
         "areas": [{"id": a, "label": AREA_LABELS.get(a, a)} for a in areas],
         "categories": cat_conf["categories"],
-        "restaurants": items,
+        "restaurants": core,
     }
-    # javascript: 等の混入対策。リンク系フィールドは http/https のみ通す
-    for e in items:
-        for field in ("url", "website"):
-            if e[field] and not e[field].startswith(("https://", "http://")):
-                e[field] = ""
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    DETAILS_PATH.write_text(json.dumps(details, ensure_ascii=False, separators=(",", ":")))
 
     # --- 7. 統計レポート ---
-    print(f"\nwrote {OUT_PATH} ({OUT_PATH.stat().st_size // 1024} KB)")
+    print(f"\nwrote {OUT_PATH} ({OUT_PATH.stat().st_size // 1024} KB) ← 起動時に読む")
+    print(f"wrote {DETAILS_PATH} ({DETAILS_PATH.stat().st_size // 1024} KB) ← 遅延読込")
     print(f"  restaurants: {len(items)} (inGuide={sum(e['inGuide'] for e in items)}, history-only={sum(not e['inGuide'] for e in items)})")
     print(f"  ambiguous timeline rows (同名複数店のため未紐付け): {ambiguous}")
     if dropped_no_coords:

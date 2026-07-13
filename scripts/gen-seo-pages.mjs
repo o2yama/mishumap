@@ -9,6 +9,11 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const data = JSON.parse(readFileSync(join(root, "public/data/restaurants.json"), "utf-8"));
 
+// url 等の詳細項目は初期ロード軽量化のため details.json に分離されている。
+// 静的ページ生成はビルド時なので、ここでは全部戻して従来どおり店名リンクを出す
+const details = JSON.parse(readFileSync(join(root, "public/data/details.json"), "utf-8"));
+for (const r of data.restaurants) Object.assign(r, details[r.id] ?? {});
+
 const SITE = "https://mishumap.com";
 const YEAR = data.latestYear;
 const PREV_YEAR = YEAR - 1;

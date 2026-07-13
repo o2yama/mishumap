@@ -13,7 +13,12 @@
 ## 構成
 
 - 静的サイト: Vite + TypeScript + Leaflet（OpenStreetMap）。バックエンドなし
-- データ: `scripts/fetch_data.py` が生成する `public/data/restaurants.json` を同梱
+- データ: `scripts/fetch_data.py` が2ファイルを生成する
+  - `public/data/restaurants.json` — 起動時に読む（地図・検索・フィルタに必要な項目のみ。gzip 約73KB）
+  - `public/data/details.json` — 紹介文・リンク・電話。**ポップアップ用に遅延読込**（gzip 約253KB）。
+    紹介文だけで全体の44%を占めるため初期ロードから外した。分離した項目を使う箇所を増やす場合、
+    静的ページ生成（ビルド時）は `gen-seo-pages.mjs` が両方をマージするので普通に参照してよい
+  - 住所は `scripts/address_ja.py` が郵便番号から日本語表記を復元して `addressJa` に入れる（99.3%）
 - カテゴリ分類の対応表: `data/cuisine_categories.json`（手動キュレーション。未知の料理ジャンルが出たらここに追記）
 - **SEO一覧ページ**: `scripts/gen-seo-pages.mjs` が `public/{ja,en}/{area}/{award}/index.html` と `sitemap.xml` を
   predev/prebuild で自動生成（gitignore済み）。事実データのみで構成し、紹介文（著作物）は載せない方針。

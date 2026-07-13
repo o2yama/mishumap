@@ -10,10 +10,11 @@ export interface Restaurant {
   cuisine: string;
   category: string;
   price: string;
-  url: string;
-  website: string;
-  phone: string;
-  description: string;
+  /** 以下4項目は details.json から遅延読込する。ポップアップを開くまでは未定義 */
+  url?: string;
+  website?: string;
+  phone?: string;
+  description?: string;
   greenStar: boolean;
   /** 最新版ガイドに掲載されているか（false = 閉店・掲載外れ・名寄せ失敗の可能性） */
   inGuide: boolean;

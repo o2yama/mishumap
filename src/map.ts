@@ -1,6 +1,7 @@
 import L from "leaflet";
 import { awardLabel, awardShort, awardStyle } from "./awards";
 import { distanceMeters, effectiveAward, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
+import { detailsLoaded, onDetailsReady } from "./details";
 import { fmt, getLang, t } from "./i18n";
 import { translateDescription, translatorAvailable } from "./translate";
 import type { FilterState, Origin, Restaurant } from "./types";
@@ -145,8 +146,8 @@ export function buildPopupHtml(
     );
   }
   const links: string[] = [];
-  const guideUrl = localizeGuideUrl(safeUrl(r.url));
-  const siteUrl = safeUrl(r.website);
+  const guideUrl = localizeGuideUrl(safeUrl(r.url ?? ""));
+  const siteUrl = safeUrl(r.website ?? "");
   if (!r.inGuide) {
     // 最新版に掲載のない店はミシュラン公式ページが削除済み（404）のため、Googleマップ検索へ飛ばす
     const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`;
@@ -184,6 +185,19 @@ export function buildPopupEl(
   areaLabel: string,
 ): HTMLElement {
   const el = document.createElement("div");
+  renderPopupInto(el, r, f, years, categoryLabel, areaLabel);
+  return el;
+}
+
+/** 遅延読込した詳細が届いた後に同じ要素を作り直せるよう、描画とイベント配線を1箇所にまとめる */
+function renderPopupInto(
+  el: HTMLElement,
+  r: Restaurant,
+  f: FilterState,
+  years: number[],
+  categoryLabel: string,
+  areaLabel: string,
+): void {
   el.innerHTML = buildPopupHtml(r, f, years, categoryLabel, areaLabel);
   const btn = el.querySelector<HTMLButtonElement>(".translate-btn");
   if (btn) {
@@ -191,7 +205,7 @@ export function buildPopupEl(
       btn.disabled = true;
       btn.textContent = t("translating");
       try {
-        const ja = await translateDescription(r.id, r.description, (pct) => {
+        const ja = await translateDescription(r.id, r.description ?? "", (pct) => {
           btn.textContent = fmt(t("translateDownloading"), { n: pct });
         });
         const desc = el.querySelector(".desc-text");
@@ -207,7 +221,6 @@ export function buildPopupEl(
       }
     });
   }
-  return el;
 }
 
 export interface MarkerLayer {
@@ -248,10 +261,20 @@ export function createMarkerLayer(
           // 過去掲載は淡く描いて現行掲載と区別する
           fillOpacity: ea?.isPast ? 0.32 : 0.92,
         });
-        marker.bindPopup(() => buildPopupEl(r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area)), {
-          maxWidth: 320,
-          className: "guide-popup",
-        });
+        marker.bindPopup(
+          () => {
+            const el = buildPopupEl(r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area));
+            // 紹介文・リンク・電話は遅延読込。届く前に開かれたら、届いた時点で描き直す
+            if (!detailsLoaded()) {
+              void onDetailsReady().then(() => {
+                renderPopupInto(el, r, f, years, categoryLabelOf(r.category), areaLabelOf(r.area));
+                marker.getPopup()?.update();
+              });
+            }
+            return el;
+          },
+          { maxWidth: 320, className: "guide-popup" },
+        );
         marker.addTo(group);
         byId.set(r.id, marker);
       }
