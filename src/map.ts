@@ -41,6 +41,8 @@ function enableDoubleDragZoom(map: L.Map): void {
   let startY = 0;
   let startZoom = 0;
   let anchor: L.LatLng | null = null;
+  /** 基点の画面座標（コンテナ基準）。毎フレームの計算をこの不変値からやり直す */
+  let anchorPoint: L.Point | null = null;
   let dragging = false;
 
   container.addEventListener("pointerdown", (e: PointerEvent) => {
@@ -57,9 +59,13 @@ function enableDoubleDragZoom(map: L.Map): void {
     startZoom = map.getZoom();
     // Googleマップと同じく、最初に触れた地点を固定したまま拡大縮小する
     const rect = container.getBoundingClientRect();
-    anchor = map.containerPointToLatLng([e.clientX - rect.left, e.clientY - rect.top]);
+    anchorPoint = L.point(e.clientX - rect.left, e.clientY - rect.top);
+    anchor = map.containerPointToLatLng(anchorPoint);
     dragging = false;
   });
+
+  let queued = false;
+  let pendingZoom = 0;
 
   container.addEventListener(
     "pointermove",
@@ -74,7 +80,21 @@ function enableDoubleDragZoom(map: L.Map): void {
       }
       e.preventDefault();
       // 下へドラッグ = 拡大。Googleマップ公式ヘルプ・Mapbox GL JS の実装と同じ向き
-      map.setZoomAround(anchor, startZoom + dy / PX_PER_ZOOM, { animate: false });
+      pendingZoom = startZoom + dy / PX_PER_ZOOM;
+      // pointermove は1フレームに何度も飛んでくる。描画はフレームごとに1回で足りる
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        if (anchor === null || anchorPoint === null) return;
+        // setZoomAround は「現在の地図状態」を基準に中心を出すため、毎フレーム呼ぶと
+        // Leaflet内部の丸めが累積して基点がじわじわずれる。開始時の不変値（基点の緯度経度と
+        // 画面座標）だけから中心を計算し直すことで、何フレーム動かしてもずれない
+        const size = map.getSize();
+        const offset = anchorPoint.subtract(size.divideBy(2));
+        const center = map.unproject(map.project(anchor, pendingZoom).subtract(offset), pendingZoom);
+        map.setView(center, pendingZoom, { animate: false });
+      });
     },
     { passive: false },
   );
@@ -83,6 +103,7 @@ function enableDoubleDragZoom(map: L.Map): void {
     if (pointerId !== e.pointerId) return;
     pointerId = null;
     anchor = null;
+    anchorPoint = null;
     if (!dragging) return;
     dragging = false;
     map.dragging.enable();
@@ -104,6 +125,13 @@ export function createMap(el: HTMLElement): L.Map {
     zoom: 6,
     renderer: L.canvas({ padding: 0.4 }),
     zoomControl: false,
+    // 既定の zoomSnap=1 は整数のズームレベルにしか止まれない。ドラッグズームがカクつくうえ、
+    // setZoomAround が「丸める前のズーム」で中心を出してから丸めるため基点がずれる。
+    // 0 にすると小数ズームを許可でき、なめらかに動き、指の下の地点も固定される
+    zoomSnap: 0,
+    // +/- ボタンとキーボードは従来どおり1レベルずつ動かす
+    zoomDelta: 1,
+    wheelPxPerZoomLevel: 90,
   });
   enableDoubleDragZoom(map);
   L.control.zoom({ position: "bottomright" }).addTo(map);
