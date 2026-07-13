@@ -38,6 +38,10 @@ const CATEGORY_LABELS = {
 
 const MIN_LISTINGS = 3; // これ未満のページは薄すぎるので作らない
 
+// Cloudflare Web Analytics（Cookieレス）。検索流入の着地点はこのSEOページ群なので、
+// 地図アプリ本体と同じビーコンをここにも入れる
+const BEACON = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "59d513e09571468fb1ede4011e2dd7bd"}'></script>`;
+
 const esc = (s) =>
   String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const jsonLd = (obj) => JSON.stringify(obj).replaceAll("<", "\\u003c");
@@ -307,6 +311,7 @@ function renderPage({ lang, area, award, rs }) {
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
 <style>${CSS}</style>
+${BEACON}
 <script type="application/ld+json">${itemList}</script>
 <script type="application/ld+json">${faqLd}</script>
 </head>
@@ -430,6 +435,7 @@ function renderChangesPage({ lang, area, diff }) {
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
 <style>${CSS}</style>
+${BEACON}
 <script type="application/ld+json">${itemList}</script>
 </head>
 <body>
