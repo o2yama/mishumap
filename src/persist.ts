@@ -4,8 +4,8 @@ const STORAGE_KEY = "bgm-last-search";
 
 /**
  * localStorageに保存する検索状態。次回起動時に同じ画面から再開するために使う。
- * origin（現在地）は保存しない — 古い位置を復元しても意味がなく、起動時の自動取得に任せる。
- * walkMinutes は「現在地フィルタ使用中だった場合のみ」キーが存在する（未使用ならデフォルトの15分を適用したいため）
+ * origin（現在地）と walkMinutes は保存しない — 現在地の取得はユーザー操作起点にしたため、
+ * 位置のない状態で距離だけ復元しても絞り込みに使えない。
  */
 export interface SavedSearch {
   awards?: string[];
@@ -15,8 +15,6 @@ export interface SavedSearch {
   area?: string;
   categories?: string[];
   query?: string;
-  includePast?: boolean;
-  walkMinutes?: number | null;
 }
 
 export function loadSavedSearch(): SavedSearch | null {
@@ -37,9 +35,6 @@ export function saveSearch(f: FilterState): void {
     area: f.area,
     categories: [...f.categories],
     query: f.query,
-    includePast: f.includePast,
-    // 現在地フィルタ未使用時は undefined（=JSONからキーごと落ちる）
-    walkMinutes: f.origin ? f.walkMinutes : undefined,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

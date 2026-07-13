@@ -26,37 +26,21 @@ export function awardInYear(r: Restaurant, year: number): string | undefined {
 
 export interface EffectiveAward {
   award: string;
+  /** 選択年のうち、この店が実際に掲載されていた最も新しい年 */
   year: number;
-  /** 選択年には掲載がなく、過去の掲載記録から表示している */
-  isPast: boolean;
 }
 
 /**
  * 選択年の掲載区分。年を複数選んだ場合は「いずれかの年に掲載」を満たせばよく、
  * 表示する区分は選択年のうち最も新しい掲載のものを採る（同じ店の最新の格付けを見せるため）。
- * includePast時は、選択年のうち最も新しい年より前の最後の掲載まで遡る。
- * どの年にも記録がなければ undefined
+ * 選択したどの年にも掲載がなければ undefined
  */
-export function effectiveAward(
-  r: Restaurant,
-  f: Pick<FilterState, "years" | "includePast">,
-): EffectiveAward | undefined {
+export function effectiveAward(r: Restaurant, f: Pick<FilterState, "years">): EffectiveAward | undefined {
   let newest = -1;
   for (const y of f.years) {
     if (r.awards[String(y)] && y > newest) newest = y;
   }
-  if (newest >= 0) return { award: r.awards[String(newest)], year: newest, isPast: false };
-  if (!f.includePast || f.years.size === 0) return undefined;
-
-  // 選択年に掲載がない店は、選択範囲の最新年より前の最後の掲載から表示する
-  const ceiling = Math.max(...f.years);
-  let latest = -1;
-  for (const y of Object.keys(r.awards)) {
-    const n = Number(y);
-    if (n < ceiling && n > latest) latest = n;
-  }
-  if (latest < 0) return undefined;
-  return { award: r.awards[String(latest)], year: latest, isPast: true };
+  return newest >= 0 ? { award: r.awards[String(newest)], year: newest } : undefined;
 }
 
 export function matchesFilters(r: Restaurant, f: FilterState): boolean {
@@ -93,12 +77,12 @@ export function applyFilters(all: Restaurant[], f: FilterState): Restaurant[] {
     const o = f.origin;
     result.sort((a, b) => distanceMeters(o, a) - distanceMeters(o, b));
   } else {
-    // 過去掲載の店は現行掲載の後ろへ
+    // 最新版ガイドに載っていない店（閉店・掲載外れの可能性）は後ろへ
     result.sort((a, b) => {
       const ea = effectiveAward(a, f);
       const eb = effectiveAward(b, f);
-      const pa = ea?.isPast ? 1 : 0;
-      const pb = eb?.isPast ? 1 : 0;
+      const pa = a.inGuide ? 0 : 1;
+      const pb = b.inGuide ? 0 : 1;
       if (pa !== pb) return pa - pb;
       const oa = AWARD_ORDER[ea?.award ?? ""] ?? 9;
       const ob = AWARD_ORDER[eb?.award ?? ""] ?? 9;

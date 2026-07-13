@@ -118,7 +118,6 @@ export function buildPopupHtml(
   const parts: string[] = [`<article class="popup">`];
   parts.push(
     `<div class="popup-badges"><span class="badge" style="--chip:${st.color}">${escapeHtml(awardLabel(award))}</span>` +
-      (ea?.isPast ? `<span class="badge badge-muted">${escapeHtml(fmt(t("listedUntil"), { year: ea.year }))}</span>` : "") +
       (r.greenStar ? `<span class="badge badge-green">${escapeHtml(t("greenStar"))}</span>` : "") +
       (!r.inGuide ? `<span class="badge badge-muted">${escapeHtml(t("popupNotInGuideBadge"))}</span>` : "") +
       `</div>`,
@@ -246,8 +245,8 @@ export function createMarkerLayer(
       const ordered = [...restaurants].sort((a, b) => {
         const ea = effectiveAward(a, f);
         const eb = effectiveAward(b, f);
-        const pa = ea?.isPast ? -10 : 0;
-        const pb = eb?.isPast ? -10 : 0;
+        const pa = a.inGuide ? 0 : -10;
+        const pb = b.inGuide ? 0 : -10;
         return pa + awardStyle(ea?.award).zIndex - (pb + awardStyle(eb?.award).zIndex);
       });
       for (const r of ordered) {
@@ -259,7 +258,8 @@ export function createMarkerLayer(
           weight: 1.5,
           fillColor: st.color,
           // 過去掲載は淡く描いて現行掲載と区別する
-          fillOpacity: ea?.isPast ? 0.32 : 0.92,
+          // 最新版に載っていない店（閉店・掲載外れの可能性）は淡く描いて区別する
+          fillOpacity: r.inGuide ? 0.92 : 0.32,
         });
         marker.bindPopup(
           () => {

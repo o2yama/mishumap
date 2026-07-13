@@ -53,6 +53,4 @@ export interface FilterState {
   origin: Origin | null;
   /** null = 距離での絞り込みなし */
   walkMinutes: number | null;
-  /** 選択年に掲載がなくても、それ以前の掲載記録がある店を表示するか */
-  includePast: boolean;
 }

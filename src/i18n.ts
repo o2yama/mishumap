@@ -28,12 +28,9 @@ const STRINGS = {
     walkOption: "徒歩{n}分圏内",
     walkApprox: "徒歩約{n}分",
     searchPlaceholder: "例: 鮨 / フレンチ / 銀座",
-    yearHint: "過去年はアーカイブ復元データのため掲載の欠損があります",
+    yearHint:
+      "過去年はアーカイブ復元データのため掲載に欠損があります。表示中の評価は当時のもので、ミシュランは過去版の掲載を公式サイトから削除するため公式では確認できません（閉店・掲載外れの可能性があります）",
     yearSuffix: "年",
-    includePastLabel: "過去掲載店も表示",
-    includePastHint:
-      "淡色の店は選択年に掲載がなく、過去の掲載記録から表示しています。ミシュランは過去版の掲載を公式サイトから削除するため公式では確認できず、評価は当時のもので、閉店・掲載外れの可能性があります",
-    listedUntil: "{year}年まで掲載",
     countOf: "<strong>{n}</strong> 軒 / 全{total}軒",
     empty: "条件に合うお店が見つかりませんでした",
     loading: "掲載店を読み込み中…",
@@ -95,12 +92,9 @@ const STRINGS = {
     walkOption: "Within {n} min walk",
     walkApprox: "~{n} min walk",
     searchPlaceholder: "e.g. Sushi / French / Shibuya",
-    yearHint: "Data for past years is restored from web archives and may be incomplete",
+    yearHint:
+      "Data for past years is restored from web archives and may be incomplete. Awards shown are from that year, and Michelin removes past listings from its official site, so they cannot be verified there (restaurants may be closed or delisted)",
     yearSuffix: "",
-    includePastLabel: "Include past listings",
-    includePastHint:
-      "Faded markers were not listed in the selected year and are shown from past records. Michelin removes past listings from its official site, so these cannot be verified there — awards are from the year shown, and restaurants may be closed or delisted",
-    listedUntil: "Listed until {year}",
     countOf: "<strong>{n}</strong> of {total} listings",
     empty: "No restaurants match your filters",
     loading: "Loading restaurants…",

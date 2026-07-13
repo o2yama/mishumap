@@ -22,8 +22,6 @@ const AWARD_CHIP_ORDER = ["3 Stars", "2 Stars", "1 Star", "Selected Restaurants"
 const AREA_ORDER = ["Tokyo", "Kyoto", "Osaka", "Nara"];
 const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
 const DEFAULT_WALK = 15;
-/** 自動現在地取得で徒歩フィルタを既定適用する条件: 最寄りの掲載店がこの距離以内（＝掲載エリア内とみなす） */
-const COVERAGE_RADIUS_M = 10_000;
 /** GeolocationPositionError.code → 表示文言 */
 const GEO_ERROR_KEYS: Record<number, StringKey> = {
   1: "locateDenied",
@@ -131,12 +129,6 @@ async function boot(): Promise<void> {
   // years は複数年対応で追加した形式。旧データ（単一の year）も引き継げるようにする
   const savedYears = (saved?.years ?? (typeof saved?.year === "number" ? [saved.year] : []))
     .filter((y) => data.years.includes(y));
-  /** 前回の徒歩距離。undefined=未使用（デフォルト15分を適用）、null=「距離指定なし」を選んでいた */
-  const savedWalk =
-    saved && "walkMinutes" in saved && (saved.walkMinutes === null || WALK_CHOICES.includes(saved.walkMinutes as number))
-      ? (saved.walkMinutes as number | null)
-      : undefined;
-  const initialWalk: number | null = savedWalk === undefined ? DEFAULT_WALK : savedWalk;
 
   const state: FilterState = {
     awards: new Set(paramAwards.length ? paramAwards : (savedAwards ?? ["3 Stars", "2 Stars", "1 Star"])),
@@ -148,7 +140,6 @@ async function boot(): Promise<void> {
     query: paramQuery ?? (typeof saved?.query === "string" ? saved.query : ""),
     origin: null,
     walkMinutes: null,
-    includePast: paramEntry ? params.get("past") === "1" : saved?.includePast === true,
   };
 
   const map = createMap($("map"));
@@ -247,18 +238,6 @@ async function boot(): Promise<void> {
   }
   renderYearHint();
 
-  // ---- 過去掲載トグル ----
-  const pastToggle = $<HTMLInputElement>("past-toggle");
-  const pastHint = $("past-hint");
-  pastToggle.checked = state.includePast;
-  pastHint.classList.toggle("hidden", !state.includePast);
-  pastToggle.addEventListener("change", () => {
-    state.includePast = pastToggle.checked;
-    pastHint.classList.toggle("hidden", !state.includePast);
-    renderLegend();
-    apply();
-  });
-
   // ---- 現在地 ----
   const locateBtn = $<HTMLButtonElement>("locate-btn");
   const walkSelect = $<HTMLSelectElement>("walk-select");
@@ -280,14 +259,10 @@ async function boot(): Promise<void> {
   }
 
   function renderWalkOptions(): void {
-    // 選択状態はstateから復元する（言語切替による再構築で「距離指定なし」を潰さない）。
-    // 現在地未取得の間は前回セッションの徒歩距離（なければ15分）をプリセットする
-    const current =
-      state.walkMinutes !== null
-        ? String(state.walkMinutes)
-        : state.origin || initialWalk === null
-          ? ""
-          : String(initialWalk);
+    // 選択状態はstateから復元する（言語切替による再構築で選択を潰さない）。
+    // 現在地未取得の間は空（距離指定なし）にしておく。距離が入っていると、
+    // 絞り込まれていないのに絞り込み済みに見えてしまう
+    const current = state.walkMinutes !== null ? String(state.walkMinutes) : "";
     walkSelect.replaceChildren(
       new Option(t("walkNone"), ""),
       ...WALK_CHOICES.map((n) => new Option(fmt(t("walkOption"), { n }), String(n))),
@@ -308,42 +283,29 @@ async function boot(): Promise<void> {
     state.walkMinutes = null;
     // 解除するのは絞り込み・並び替えだけで、位置ドットは出したままにする
     lastFix ? originLayer.set(lastFix, null, false) : originLayer.clear();
-    walkSelect.disabled = true;
+    walkSelect.value = "";
     renderLocateBtn();
     setStatus(null);
     apply();
   }
 
-  function requestLocation(auto = false): void {
+  /** 現在地の取得は必ずユーザー操作起点。起動時に勝手に許可ダイアログを出さない */
+  function requestLocation(): void {
     if (!("geolocation" in navigator)) {
-      if (!auto) setStatus("locateUnsupported", true);
+      setStatus("locateUnsupported", true);
       return;
     }
     locateBtn.disabled = true;
-    if (!auto) setStatus("locating");
+    setStatus("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         locateBtn.disabled = false;
         const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         lastFix = origin;
-        if (auto) {
-          // フィルタ指定付き流入時と、掲載店が近くに無い場所（対象4都市の圏外）では
-          // 徒歩フィルタや視点移動はせず、位置ドットの表示だけにとどめる
-          const inArea = data.restaurants.some((r) => distanceMeters(origin, r) <= COVERAGE_RADIUS_M);
-          if (paramEntry || !inArea) {
-            originLayer.set(origin, null, false);
-            return;
-          }
-        }
         state.origin = origin;
-        walkSelect.disabled = false;
-        if (auto) {
-          // 前回セッションで使っていた徒歩距離（なければデフォルト15分）を適用する
-          state.walkMinutes = initialWalk;
-          walkSelect.value = initialWalk === null ? "" : String(initialWalk);
-        } else {
-          state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : null;
-        }
+        // 距離を選んでから取得を始めた場合はその値を、ボタンから始めた場合は既定値を使う
+        state.walkMinutes = walkSelect.value ? Number(walkSelect.value) : DEFAULT_WALK;
+        walkSelect.value = String(state.walkMinutes);
         originLayer.set(state.origin, state.walkMinutes);
         renderLocateBtn();
         setStatus("locateSorted");
@@ -351,8 +313,6 @@ async function boot(): Promise<void> {
       },
       (err) => {
         locateBtn.disabled = false;
-        // ユーザー操作起点でない失敗（許可拒否等）は通知しない
-        if (auto) return;
         setStatus(GEO_ERROR_KEYS[err.code] ?? "locateFailed", true);
       },
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
@@ -405,7 +365,10 @@ async function boot(): Promise<void> {
     if (state.origin) {
       originLayer.set(state.origin, state.walkMinutes);
       apply();
+      return;
     }
+    // 未取得なら、距離を選んだこと自体を「現在地から探したい」という意思表示として扱う
+    if (state.walkMinutes !== null) requestLocation();
   });
 
   // ---- 店名検索 ----
@@ -427,8 +390,8 @@ async function boot(): Promise<void> {
       const st = AWARD_STYLES[key];
       return `<div class="legend-item"><span class="dot" style="background:${st.color}"></span>${awardLabel(key)}</div>`;
     }).join("");
-    if (state.includePast) {
-      legend.innerHTML += `<div class="legend-item"><span class="dot" style="background:#bb1f2f;opacity:.32"></span>${t("includePastLabel")}</div>`;
+    if (lastFiltered.some((r) => !r.inGuide)) {
+      legend.innerHTML += `<div class="legend-item"><span class="dot" style="background:#bb1f2f;opacity:.32"></span>${t("popupNotInGuideBadge")}</div>`;
     }
   }
 
@@ -442,6 +405,16 @@ async function boot(): Promise<void> {
     sidebar.classList.toggle("open");
     renderMobileToggle();
   });
+
+  function closeSheet(): void {
+    if (!sidebar.classList.contains("open")) return;
+    sidebar.classList.remove("open");
+    renderMobileToggle();
+  }
+  // SPではシートが画面の大半を覆う。地図に触れた時点で「地図を見たい」という意思なので閉じる。
+  // ピンのタップは map の click に乗らないことがあるため、ポップアップが開いたときにも閉じる
+  map.on("click", closeSheet);
+  map.on("popupopen", closeSheet);
 
   // ---- 結果リスト ----
   const resultList = $("result-list");
@@ -462,7 +435,8 @@ async function boot(): Promise<void> {
       const ea = effectiveAward(r, state);
       const st = awardStyle(ea?.award);
       const li = document.createElement("li");
-      li.className = ea?.isPast ? "result-item past" : "result-item";
+      // 最新版に載っていない店は淡く表示して、現行掲載と区別する
+      li.className = r.inGuide ? "result-item" : "result-item past";
       li.style.setProperty("--award", st.color);
 
       const nameRow = document.createElement("div");
@@ -477,7 +451,7 @@ async function boot(): Promise<void> {
       const meta = document.createElement("div");
       meta.className = "r-meta";
       const bits = [...new Set([categoryLabel(r.category), r.cuisine, areaLabel(r.area)].filter(Boolean))];
-      if (ea?.isPast) bits.push(fmt(t("listedUntil"), { year: ea.year }));
+      if (!r.inGuide) bits.push(t("popupNotInGuideBadge"));
       meta.textContent = bits.join(" ・ ");
       if (state.origin) {
         const walk = document.createElement("span");
@@ -573,7 +547,6 @@ async function boot(): Promise<void> {
       p.set("year", [...state.years].sort((a, b) => b - a).join(","));
     }
     if (state.query) p.set("q", state.query);
-    if (state.includePast) p.set("past", "1");
     const qs = p.toString();
     history.replaceState({ mishu: true }, "", qs ? `${location.pathname}?${qs}` : location.pathname);
   }
@@ -582,6 +555,7 @@ async function boot(): Promise<void> {
     lastFiltered = applyFilters(data.restaurants, state);
     markerLayer.rebuild(lastFiltered, state);
     renderList(lastFiltered);
+    renderLegend(); // 凡例の「最新版に掲載なし」は結果に該当店があるときだけ出す
     saveSearch(state); // 次回起動時に同じ検索状態から再開できるようにする
     syncUrl();
   }
@@ -602,18 +576,6 @@ async function boot(): Promise<void> {
   fitToResults(false);
   $("loading").classList.add("done");
 
-  // デフォルトで現在地を取得する。フィルタ指定付き流入では指定エリアを見に来ているので、
-  // 許可ダイアログは出さず、すでに許可済みのときだけ位置ドットを表示する
-  if (!paramEntry) {
-    requestLocation(true);
-  } else if ("permissions" in navigator) {
-    navigator.permissions
-      .query({ name: "geolocation" })
-      .then((st) => {
-        if (st.state === "granted") requestLocation(true);
-      })
-      .catch(() => {});
-  }
 }
 
 boot().catch((err) => {
