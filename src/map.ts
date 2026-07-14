@@ -3,6 +3,7 @@ import { awardLabel, awardShort, awardStyle } from "./awards";
 import { distanceMeters, effectiveAward, walkMinutes, WALK_METERS_PER_MINUTE } from "./filters";
 import { detailsLoaded, onDetailsReady } from "./details";
 import { fmt, getLang, t } from "./i18n";
+import { popupLinkTargets, type PopupLinkKind } from "./popupLinks";
 import { translateDescription, translatorAvailable } from "./translate";
 import type { FilterState, Origin, Restaurant } from "./types";
 
@@ -255,18 +256,17 @@ export function buildPopupHtml(
       `<p class="popup-walk">${fmt(t("popupWalk"), { min: walkMinutes(m), m: Math.round(m) })}</p>`,
     );
   }
-  const links: string[] = [];
   const guideUrl = localizeGuideUrl(safeUrl(r.url ?? ""));
   const siteUrl = safeUrl(r.website ?? "");
-  if (!r.inGuide) {
-    // 最新版に掲載のない店はミシュラン公式ページが削除済み（404）のため、Googleマップ検索へ飛ばす
-    const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`;
-    links.push(`<a href="${escapeHtml(gmapsUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupGmapsLink"))}</a>`);
-  } else if (guideUrl) {
-    links.push(`<a href="${escapeHtml(guideUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupGuideLink"))}</a>`);
-  }
-  if (siteUrl)
-    links.push(`<a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener">${escapeHtml(t("popupSiteLink"))}</a>`);
+  const linkLabels: Record<PopupLinkKind, string> = {
+    guide: t("popupGuideLink"),
+    gmaps: t("popupGmapsLink"),
+    site: t("popupSiteLink"),
+  };
+  const links = popupLinkTargets(r, guideUrl, siteUrl).map(
+    ({ kind, url }) =>
+      `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(linkLabels[kind])}</a>`,
+  );
   if (links.length) parts.push(`<p class="popup-links">${links.join("")}</p>`);
   if (r.description) {
     // 日本語UIかつ対応ブラウザでは、オンデバイス翻訳ボタンを出す
