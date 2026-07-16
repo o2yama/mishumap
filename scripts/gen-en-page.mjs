@@ -10,17 +10,17 @@ let html = readFileSync(join(root, "ja/index.html"), "utf-8");
 const replacements = [
   ['<html lang="ja">', '<html lang="en">'],
   [
-    "<title>ミシュマップ — 日本のミシュラン掲載店を地図で探す</title>",
-    "<title>MishuMap — Michelin-listed restaurants in Japan</title>",
+    "<title>ミシュマップ — ミシュラン2026・ビブグルマンの店を地図で探す</title>",
+    "<title>MishuMap — Michelin Guide Japan 2026 Map: Bib Gourmand & Stars</title>",
   ],
   // タイトル文言は <title> と og:title の2箇所、説明文は description と og:description の2箇所に出る
   [
-    'content="ミシュマップ — 日本のミシュラン掲載店を地図で探す"',
-    'content="MishuMap — Michelin-listed restaurants in Japan"',
+    'content="ミシュマップ — ミシュラン2026・ビブグルマンの店を地図で探す"',
+    'content="MishuMap — Michelin Guide Japan 2026 Map: Bib Gourmand & Stars"',
   ],
   [
-    'content="日本のビブグルマン・星付き店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"',
-    'content="Explore Michelin-starred and Bib Gourmand restaurants in Japan on a map. Filter by year, area, category, and walking distance."',
+    'content="ミシュランガイド2026の星付き・ビブグルマン・セレクテッド掲載店を地図で検索。年・エリア・カテゴリ・現在地から徒歩◯分で絞り込めます。"',
+    'content="Explore Michelin Guide Japan 2026 on a map — Bib Gourmand, starred and selected restaurants. Filter by year, area, category, and walking distance."',
   ],
   ['<link rel="canonical" href="https://mishumap.com/ja/" />', '<link rel="canonical" href="https://mishumap.com/en/" />'],
   [

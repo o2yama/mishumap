@@ -18,6 +18,17 @@ const SITE = "https://mishumap.com";
 const YEAR = data.latestYear;
 const PREV_YEAR = YEAR - 1;
 
+// アプリ本体のタイトル年号はハードコード（ja/index.html）のため、データ側の最新年が進んだら
+// 手動更新が必要。取り残しに気づけるよう、ズレたらビルドを止める（gen-en-page.mjs の置換も要更新）
+const appHtml = readFileSync(join(root, "ja/index.html"), "utf-8");
+if (!appHtml.includes(`ミシュラン${YEAR}`)) {
+  console.error(
+    `gen-seo-pages: ja/index.html のタイトル年号がデータの最新年（${YEAR}）と一致しません。` +
+      "ja/index.html と scripts/gen-en-page.mjs の年号を更新してください",
+  );
+  process.exit(1);
+}
+
 const AREAS = [
   { id: "Tokyo", slug: "tokyo", ja: "東京", en: "Tokyo" },
   { id: "Kyoto", slug: "kyoto", ja: "京都", en: "Kyoto" },
