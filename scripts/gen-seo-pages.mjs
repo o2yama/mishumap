@@ -101,6 +101,9 @@ nav.rel a{color:var(--red-deep);margin-right:14px;white-space:nowrap}
 footer{margin-top:30px;font-size:11px;color:var(--soft);line-height:1.8}
 footer a{color:var(--red-deep)}
 .badge{font-size:10px;font-weight:700;color:#faf3e3;background:var(--red);border-radius:3px;padding:1.5px 7px;white-space:nowrap}
+.badge-muted{background:#8a7f6d}
+nav.bc{font-size:12px;color:var(--soft);margin-bottom:14px}nav.bc a{color:var(--red-deep)}
+.status{font-size:13.5px;padding:10px 14px;border:1px solid var(--line);border-radius:6px;background:rgba(255,255,255,.45);margin:14px 0}
 `;
 
 const STR = {
@@ -152,6 +155,27 @@ const STR = {
     chDown: "変更",
     footer: `データ出典: <a href="https://github.com/ngshiheng/michelin-my-maps" rel="noopener">michelin-my-maps</a>（MIT License）。本サイトはミシュランガイド非公式のファンメイドです。掲載内容は${YEAR}年版時点の情報で、最新の掲載状況は公式サイトをご確認ください。`,
     all: "すべての掲載店",
+    rTitleCur: (name, area, award) => `${name} — ${area}のミシュラン${award}（${YEAR}年版）｜地図・掲載履歴`,
+    rTitlePast: (name, area, award, last) => `${name} — ${area}の過去ミシュラン掲載店（最終掲載${last}年・${award}）`,
+    rMetaCur: (r, area, award) =>
+      `${r.name}（${area}・${r.cuisine}）はミシュランガイド${YEAR}年版の${award}掲載店。住所は${addr(r, "ja") || "非公開"}。掲載履歴・地図・公式ガイドへのリンクをまとめています。`,
+    rMetaPast: (r, area, award, last) =>
+      `${r.name}（${area}・${r.cuisine}）は${last}年版までミシュランガイドに掲載されていた店（最終区分: ${award}）。現在のガイドには掲載されていません。掲載履歴と所在地情報を掲載。`,
+    rStatusCur: (award) => `ミシュランガイド${YEAR}年版に${award}として掲載中です。`,
+    rStatusPast: (last, award) =>
+      `現在のミシュランガイドには掲載されていません（最終掲載: ${last}年版・${award}）。閉店・移転・掲載外れのいずれの可能性もあります。`,
+    rInfo: "店舗情報",
+    rHistory: "ミシュラン掲載履歴",
+    rNearby: "近くのミシュラン掲載店",
+    thYear: "年",
+    thPrice: "価格帯",
+    thPhone: "電話",
+    rOfficial: "ミシュラン公式ページ",
+    rGmaps: "Googleマップで見る",
+    rWebsite: "店舗サイト",
+    rNotInGuide: "掲載外",
+    rCta: "この店の周辺を地図アプリで見る →",
+    rBackToList: (area, award) => `${area}の${award}一覧へ`,
   },
   en: {
     langPath: "en",
@@ -201,6 +225,27 @@ const STR = {
     chDown: "Changed",
     footer: `Data: <a href="https://github.com/ngshiheng/michelin-my-maps" rel="noopener">michelin-my-maps</a> (MIT License). This is an unofficial fan-made site, not affiliated with the MICHELIN Guide. Listings reflect the ${YEAR} guide; check the official site for the latest status.`,
     all: "All listed restaurants",
+    rTitleCur: (name, area, award) => `${name} — ${award} Restaurant in ${area} (${YEAR} MICHELIN Guide) | Map & History`,
+    rTitlePast: (name, area, award, last) => `${name} — Former MICHELIN-Listed Restaurant in ${area} (last listed ${last}, ${award})`,
+    rMetaCur: (r, area, award) =>
+      `${r.name} (${r.cuisine}, ${area}) holds the ${award} distinction in the ${YEAR} MICHELIN Guide. Address: ${addr(r, "en") || "n/a"}. Listing history, map and official guide link.`,
+    rMetaPast: (r, area, award, last) =>
+      `${r.name} (${r.cuisine}, ${area}) was listed in the MICHELIN Guide until ${last} (last distinction: ${award}). Not in the current guide. Listing history and location.`,
+    rStatusCur: (award) => `Listed in the ${YEAR} MICHELIN Guide as ${award}.`,
+    rStatusPast: (last, award) =>
+      `Not in the current MICHELIN Guide (last listed: ${last}, ${award}). The restaurant may have closed, relocated, or been removed.`,
+    rInfo: "Restaurant details",
+    rHistory: "MICHELIN listing history",
+    rNearby: "MICHELIN-listed restaurants nearby",
+    thYear: "Year",
+    thPrice: "Price range",
+    thPhone: "Phone",
+    rOfficial: "Official MICHELIN Guide page",
+    rGmaps: "Open in Google Maps",
+    rWebsite: "Restaurant website",
+    rNotInGuide: "Not listed",
+    rCta: "Explore this area on the map →",
+    rBackToList: (area, award) => `All ${award} restaurants in ${area}`,
   },
 };
 
@@ -226,7 +271,47 @@ function computeDiff(areaId) {
   };
 }
 
-const gmapsUrl = (r) => `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`;
+const gmapsUrl = (r) =>
+  r.lat != null
+    ? `https://www.google.com/maps/search/${encodeURIComponent(r.name)}/@${r.lat},${r.lng},17z`
+    : `https://www.google.com/maps/search/${encodeURIComponent(`${r.name} ${r.area} Japan`)}`;
+
+// ---- 店舗個別ページ用ヘルパー ----
+const AREA_BY_ID = Object.fromEntries(AREAS.map((a) => [a.id, a]));
+
+// 店舗slug: id（"tokyo-sushi-sugisawa" 形式・全店ユニーク）からエリアプレフィックスを剥がす。
+// idは日本語文字を含み得るが、URLとディレクトリ名を完全一致させるためASCIIに落とし、
+// その結果の衝突はエリア内で -2 採番する（決定的: data.restaurants の並び順で採番）
+const SLUGS = new Map();
+{
+  const seen = new Set();
+  for (const r of data.restaurants) {
+    const prefix = `${AREA_BY_ID[r.area].slug}-`;
+    const raw = r.id.startsWith(prefix) ? r.id.slice(prefix.length) : r.id;
+    const base =
+      raw.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "restaurant";
+    let slug = base;
+    for (let n = 2; seen.has(`${r.area}/${slug}`); n++) slug = `${base}-${n}`;
+    seen.add(`${r.area}/${slug}`);
+    SLUGS.set(r.id, slug);
+  }
+}
+const slugOf = (r) => SLUGS.get(r.id);
+
+const rPath = (lang, r) => `/${lang}/${AREA_BY_ID[r.area].slug}/r/${slugOf(r)}/`;
+const rUrl = (lang, r) => `${SITE}${rPath(lang, r)}`;
+const nameLink = (lang, r) => `<a href="${rPath(lang, r)}">${esc(r.name)}</a>`;
+
+/** 同エリアの現行掲載店から直線距離の近い順に返す（座標のない店は対象外） */
+function nearby(r, limit) {
+  if (r.lat == null) return [];
+  return data.restaurants
+    .filter((x) => x.area === r.area && x.id !== r.id && x.lat != null && x.awards[String(YEAR)])
+    .map((x) => ({ x, d: (x.lat - r.lat) ** 2 + ((x.lng - r.lng) * 0.8) ** 2 }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, limit)
+    .map((e) => e.x);
+}
 
 function pageUrl(lang, areaSlug, awardSlug) {
   return `${SITE}/${lang}/${areaSlug}/${awardSlug ? awardSlug + "/" : ""}`;
@@ -253,9 +338,10 @@ function renderPage({ lang, area, award, rs }) {
     return a ? a[lang] : "";
   };
 
+  // 店名リンクは店舗個別ページへ（公式リンクは個別ページ側に置く）
   const rows = rs
     .map(
-      (r) => `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}${
+      (r) => `<tr><td>${nameLink(lang, r)}${
         award ? "" : ` <span class="badge">${esc(awardBadge(r))}</span>`
       }</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
@@ -364,6 +450,158 @@ ${faqs.map(([q, a]) => `<dt>${esc(q)}</dt><dd>${esc(a)}</dd>`).join("\n")}
 `;
 }
 
+function renderRestaurantPage({ lang, r }) {
+  const s = STR[lang];
+  const area = AREA_BY_ID[r.area];
+  const areaName = area[lang];
+  const years = Object.keys(r.awards).sort((a, b) => Number(b) - Number(a));
+  const inCurrent = Boolean(r.awards[String(YEAR)]);
+  const lastYear = years[0];
+  const lastAwardId = r.awards[lastYear];
+  const awardLabel = awardName(lastAwardId, lang);
+  const awardObj = AWARDS.find((a) => a.id === lastAwardId);
+
+  // 区分一覧ページは MIN_LISTINGS 未満だと生成されないため、リンクを張る前に存在を保証する。
+  // 可視パンくずと BreadcrumbList 構造化データは同じ条件で揃える（不一致はSearch Console警告になる）
+  const showAwardCrumb = Boolean(
+    awardObj && inCurrent && listings(area.id, awardObj.id).length >= MIN_LISTINGS,
+  );
+
+  const title = inCurrent
+    ? s.rTitleCur(r.name, areaName, awardLabel)
+    : s.rTitlePast(r.name, areaName, awardLabel, lastYear);
+  const meta = inCurrent ? s.rMetaCur(r, areaName, awardLabel) : s.rMetaPast(r, areaName, awardLabel, lastYear);
+  const self = rUrl(lang, r);
+
+  const historyRows = years
+    .map((y) => `<tr><td>${esc(y)}</td><td><span class="badge">${esc(awardName(r.awards[y], lang))}</span></td></tr>`)
+    .join("\n");
+
+  const facts = [
+    [s.thGenre, r.cuisine],
+    [s.thPrice, r.price],
+    [s.thAddress, addr(r, lang)],
+    [s.thPhone, r.phone],
+  ]
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`)
+    .join("\n");
+
+  const links = [
+    // 掲載外の店の公式URLはリンク切れの可能性が高いため現行掲載店のみ出す（ポップアップと同方針）
+    inCurrent && r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(s.rOfficial)}</a>` : "",
+    `<a href="${esc(gmapsUrl(r))}" rel="noopener">${esc(s.rGmaps)}</a>`,
+    r.website ? `<a href="${esc(r.website)}" rel="noopener">${esc(s.rWebsite)}</a>` : "",
+  ]
+    .filter(Boolean)
+    .join("");
+
+  const near = nearby(r, 6);
+  const nearRows = near
+    .map(
+      (x) =>
+        `<tr><td>${nameLink(lang, x)} <span class="badge">${esc(awardName(x.awards[String(YEAR)], lang))}</span></td><td>${esc(x.cuisine)}</td><td>${esc(addr(x, lang))}</td></tr>`,
+    )
+    .join("\n");
+
+  const ld = jsonLd({
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: r.name,
+    address: addr(r, lang) || undefined,
+    servesCuisine: r.cuisine || undefined,
+    priceRange: r.price || undefined,
+    telephone: r.phone || undefined,
+    url: r.website || undefined,
+    sameAs: inCurrent && r.url ? r.url : undefined,
+    award: `MICHELIN Guide ${lastYear} — ${awardName(lastAwardId, "en")}`,
+    ...(r.lat != null ? { geo: { "@type": "GeoCoordinates", latitude: r.lat, longitude: r.lng } } : {}),
+  });
+  const breadcrumbLd = jsonLd({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: areaName, item: pageUrl(lang, area.slug) },
+      ...(showAwardCrumb
+        ? [{ "@type": "ListItem", position: 2, name: awardObj[lang], item: pageUrl(lang, area.slug, awardObj.slug) }]
+        : []),
+      { "@type": "ListItem", position: showAwardCrumb ? 3 : 2, name: r.name, item: self },
+    ],
+  });
+
+  const listBack = showAwardCrumb
+    ? `<a href="/${lang}/${area.slug}/${awardObj.slug}/">${esc(s.rBackToList(areaName, awardObj[lang]))}</a>`
+    : `<a href="/${lang}/${area.slug}/">${esc(s.all)}</a>`;
+
+  return `<!doctype html>
+<html lang="${s.htmlLang}">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${esc(title)} | ${lang === "ja" ? "ミシュマップ" : "MishuMap"}</title>
+<meta name="description" content="${esc(meta)}" />
+<link rel="canonical" href="${self}" />
+<link rel="alternate" hreflang="ja" href="${rUrl("ja", r)}" />
+<link rel="alternate" hreflang="en" href="${rUrl("en", r)}" />
+<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="${lang === "ja" ? "ミシュマップ" : "MishuMap"}" />
+<meta property="og:locale" content="${lang === "ja" ? "ja_JP" : "en_US"}" />
+<meta property="og:url" content="${self}" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(meta)}" />
+<meta property="og:image" content="${SITE}/og${lang === "ja" ? "" : "-en"}.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- 日本語フォントのCSSは大きくFCPをブロックするため、描画を止めずに読ませる -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" /></noscript>
+<style>${CSS}</style>
+${BEACON}
+<script type="application/ld+json">${ld}</script>
+<script type="application/ld+json">${breadcrumbLd}</script>
+</head>
+<body>
+<div class="wrap">
+<header class="site"><img src="/icon.svg" alt="" /><a href="/${lang}/">${lang === "ja" ? "ミシュマップ" : "MishuMap"}</a></header>
+<nav class="bc"><a href="/${lang}/${area.slug}/">${esc(areaName)}</a>${
+    showAwardCrumb ? ` › <a href="/${lang}/${area.slug}/${awardObj.slug}/">${esc(awardObj[lang])}</a>` : ""
+  } › ${esc(r.name)}</nav>
+<h1>${esc(r.name)} <span class="badge${inCurrent ? "" : " badge-muted"}">${esc(inCurrent ? awardLabel : s.rNotInGuide)}</span></h1>
+<p class="status">${esc(inCurrent ? s.rStatusCur(awardLabel) : s.rStatusPast(lastYear, awardLabel))}</p>
+<a class="cta" href="${esc(appLink(lang, r.area, null))}">${esc(s.rCta)}</a>
+<h2>${esc(s.rInfo)}</h2>
+<table>
+${facts}
+</table>
+<h2>${esc(s.rHistory)}</h2>
+<table>
+<thead><tr><th>${esc(s.thYear)}</th><th>${esc(s.thAward)}</th></tr></thead>
+<tbody>
+${historyRows}
+</tbody>
+</table>
+${near.length ? `<h2>${esc(s.rNearby)}</h2>
+<table>
+<thead><tr><th>${s.thName}</th><th>${s.thGenre}</th><th>${s.thAddress}</th></tr></thead>
+<tbody>
+${nearRows}
+</tbody>
+</table>` : ""}
+<nav class="rel">
+<div>${links}</div>
+<div>${listBack}</div>
+</nav>
+<footer>${s.footer}</footer>
+</div>
+</body>
+</html>
+`;
+}
+
 function renderChangesPage({ lang, area, diff }) {
   const s = STR[lang];
   const areaName = area[lang];
@@ -379,14 +617,14 @@ function renderChangesPage({ lang, area, diff }) {
   const newRows = newcomers
     .map(
       (r) =>
-        `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${badge(cur(r))}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
+        `<tr><td>${nameLink(lang, r)}</td><td>${badge(cur(r))}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
     .join("\n");
 
   const changedRows = changed
     .map((r) => {
       const upDown = AWARD_RANK[cur(r)] > AWARD_RANK[prev(r)] ? `↗ ${s.chUp}` : `↘ ${s.chDown}`;
-      return `<tr><td>${r.url ? `<a href="${esc(r.url)}" rel="noopener">${esc(r.name)}</a>` : esc(r.name)}</td><td>${esc(
+      return `<tr><td>${nameLink(lang, r)}</td><td>${esc(
         s.chArrow(awardName(prev(r), lang), awardName(cur(r), lang)),
       )}（${esc(upDown)}）</td><td>${esc(r.cuisine)}</td></tr>`;
     })
@@ -395,7 +633,7 @@ function renderChangesPage({ lang, area, diff }) {
   const droppedRows = dropped
     .map(
       (r) =>
-        `<tr><td><a href="${esc(gmapsUrl(r))}" rel="noopener">${esc(r.name)}</a></td><td>${badge(prev(r) ?? Object.entries(r.awards).sort((a, b) => Number(b[0]) - Number(a[0]))[0][1])}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
+        `<tr><td>${nameLink(lang, r)}</td><td>${badge(prev(r) ?? Object.entries(r.awards).sort((a, b) => Number(b[0]) - Number(a[0]))[0][1])}</td><td>${esc(r.cuisine)}</td><td>${esc(addr(r, lang))}</td></tr>`,
     )
     .join("\n");
 
@@ -513,6 +751,15 @@ for (const lang of ["ja", "en"]) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "index.html"), renderChangesPage({ lang, area, diff }));
       sitemapUrls.push(`${SITE}/${lang}/${area.slug}/changes-${YEAR}/`);
+      pageCount++;
+    }
+
+    // 店舗個別ページ（過去掲載店も含む全店。年次履歴が独自コンテンツになる）
+    for (const r of data.restaurants.filter((x) => x.area === area.id)) {
+      const dir = join(areaDir, "r", slugOf(r));
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "index.html"), renderRestaurantPage({ lang, r }));
+      sitemapUrls.push(rUrl(lang, r));
       pageCount++;
     }
   }
