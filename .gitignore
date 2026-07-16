@@ -1,6 +1,8 @@
 node_modules/
 dist/
 tmp/
+# アクセス解析API用の認証情報（scripts/analytics_report.py が読む）
+.env
 .DS_Store
 *.log
 # ja/index.html から scripts/gen-en-page.mjs が生成（predev/prebuildで自動実行）
@@ -9,3 +11,4 @@ tmp/
 /public/ja/
 /public/en/
 /public/sitemap.xml
+__pycache__/

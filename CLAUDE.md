@@ -45,6 +45,19 @@ python3 scripts/fetch_data.py               # 常にAPIから再取得して pub
 python3 scripts/fetch_data.py --use-cache   # 開発時の反復用（tmp/cache/ を使う。データは更新されない）
 ```
 
+## アクセス解析の参照方法
+
+「アクセスどう？」と聞かれたら `python3 scripts/analytics_report.py`（`--days N` で期間指定）を実行する。
+
+- **Search Console**: gcloud の ADC で認証済み。プロパティは `sc-domain:mishumap.com`。
+  APIリクエストには `x-goog-user-project: mishumap-analytics` ヘッダーが毎回必須（ADC設定だけだと403）
+- **Cloudflare Web Analytics**: `.env`（gitignore済み）の認証情報を使いGraphQL APIで取得（設定済み・動作確認済み）。
+  現在は Global API Key 方式（CLOUDFLARE_EMAIL + CLOUDFLARE_API_KEY）。スコープ付きトークンを
+  発行したら CLOUDFLARE_API_TOKEN に入れれば自動でそちらを優先する。
+  accountTag `c9cd13fa98899e3446ee542e125f3c1e` / siteTag `51bf6f69d00e49298f9f3c586dae9c6f`
+- ダッシュボードをブラウザで見る場合: https://dash.cloudflare.com/c9cd13fa98899e3446ee542e125f3c1e/web-analytics
+  （devtools/自動操作Chromeはログインセッションを持たないことがある。その場合ユーザーにログインを依頼する）
+
 ## 制約・注意
 
 - 一時ファイルは `tmp/`（gitignore済み）へ
