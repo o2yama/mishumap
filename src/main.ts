@@ -25,6 +25,12 @@ const WALK_CHOICES = [5, 10, 15, 20, 30, 60];
 const CUISINE_CHIP_MIN = 20;
 const PRICE_LEVELS = [1, 2, 3, 4];
 const DEFAULT_WALK = 15;
+/** shop=（店舗個別ページからの導線）で寄せる周辺店の件数とズームの上下限 */
+const SHOP_FOCUS_COUNT = 10;
+const SHOP_FOCUS_MAX_ZOOM = 17;
+const SHOP_FOCUS_MIN_ZOOM = 13;
+/** 近隣店が1件もフィルタを通過しない場合、店単体で寄せるズーム */
+const SHOP_FOCUS_SOLO_ZOOM = 15;
 /** GeolocationPositionError.code → 表示文言 */
 const GEO_ERROR_KEYS: Record<number, StringKey> = {
   1: "locateDenied",
@@ -117,6 +123,8 @@ async function boot(): Promise<void> {
     .split(",")
     .map((v) => Number(v.trim()))
     .filter((v) => PRICE_LEVELS.includes(v));
+  // 店舗個別ページからの「周辺を地図で見る」導線。一時的なディープリンク用でsyncUrlには書き戻さない
+  const paramShop = params.get("shop") ?? undefined;
 
   // ジャンルはURL用にスラッグ化する（"Unagi / Freshwater Eel" → "unagi-freshwater-eel"）
   const cuisineSlug = (c: string): string =>
@@ -140,7 +148,8 @@ async function boot(): Promise<void> {
       paramYears.length > 0 ||
       paramCuisines.length > 0 ||
       paramPrices.length > 0 ||
-      Boolean(paramQuery));
+      Boolean(paramQuery) ||
+      Boolean(paramShop));
 
   // 前回の検索状態を復元する。ただしフィルタ指定付き流入ではリンクが示す一覧をそのまま見せるべき
   // なので、保存状態（検索語や区分の絞り込み）は一切適用しない。
@@ -169,6 +178,23 @@ async function boot(): Promise<void> {
     origin: null,
     walkMinutes: null,
   };
+
+  // shop= が指す店を、URL/保存フィルタでたまたま除外していたら最小限だけ広げて必ず見えるようにする。
+  // チップの初期表示にも反映させたいので、UI構築（チップ生成）より前に state を確定させる
+  const shopRestaurant = paramShop ? data.restaurants.find((r) => r.id === paramShop) : undefined;
+  if (shopRestaurant) {
+    if (!effectiveAward(shopRestaurant, state)) {
+      const years = Object.keys(shopRestaurant.awards).map(Number);
+      if (years.length) state.years.add(Math.max(...years));
+    }
+    const ea = effectiveAward(shopRestaurant, state);
+    if (ea) state.awards.add(ea.award);
+    if (state.area && state.area !== shopRestaurant.area) state.area = "";
+    state.categories.add(shopRestaurant.category);
+    if (state.cuisines.size && !state.cuisines.has(shopRestaurant.cuisine)) state.cuisines.clear();
+    if (state.priceLevels.size && !state.priceLevels.has(shopRestaurant.priceLevel)) state.priceLevels.clear();
+    state.query = "";
+  }
 
   const map = createMap($("map"));
   const markerLayer = createMarkerLayer(map, data.years, categoryLabel, areaLabel);
@@ -629,6 +655,36 @@ async function boot(): Promise<void> {
     map.fitBounds(bounds, { padding: [40, 40], animate });
   }
 
+  /**
+   * shop=の店を中心に、近い順10件が収まるズームへ寄せる。ズームが寄りすぎ/引きすぎないよう上下限でクランプする。
+   * 近隣店は実際にマーカー表示される集合（lastFiltered＝現在のフィルタを通過した店）から選ぶ。
+   * 全店舗基準だと、フィルタで隠れている密集地の店に引っ張られてbounds/ズームが実際の表示内容とズレるため
+   */
+  function focusOnShop(shop: Restaurant): void {
+    const nearby = lastFiltered
+      .filter((r) => r.id !== shop.id)
+      .sort((a, b) => distanceMeters(shop, a) - distanceMeters(shop, b))
+      .slice(0, SHOP_FOCUS_COUNT);
+    const shopLatLng = L.latLng(shop.lat, shop.lng);
+    let zoom = SHOP_FOCUS_SOLO_ZOOM;
+    if (nearby.length > 0) {
+      // 外接矩形だと近隣の分布が偏った側にズームが寄り、反対側の枠が無駄になる。
+      // 店を中心とした正方形バウンズ（最遠店までの距離の2倍を一辺）でズームを決めれば、
+      // 近隣10件が（クランプに掛からない限り）常に視界に収まる
+      const maxDist = distanceMeters(shop, nearby[nearby.length - 1]);
+      const bounds = shopLatLng.toBounds(maxDist * 2);
+      map.fitBounds(bounds, { padding: [40, 40], animate: false });
+      zoom = map.getZoom();
+      if (zoom > SHOP_FOCUS_MAX_ZOOM) zoom = SHOP_FOCUS_MAX_ZOOM;
+      else if (zoom < SHOP_FOCUS_MIN_ZOOM) zoom = SHOP_FOCUS_MIN_ZOOM;
+    }
+    // fitBoundsは外接矩形の中心に寄るため、近隣の分布が偏ると店自体が中心から外れる。
+    // ズームだけfitBoundsで決め、最後に必ず店の座標へsetViewして中心を固定する
+    map.setView(shopLatLng, zoom, { animate: false });
+    // フィルタで絞られていてマーカーが存在しない場合は何もしない（openPopupOnly側でガード済み）
+    markerLayer.openPopupOnly(shop.id);
+  }
+
   renderLanguage();
   apply();
   // ピンを描き終えてから紹介文・リンク・電話を裏で取りに行く（初期ロードから外している）
@@ -636,6 +692,8 @@ async function boot(): Promise<void> {
   // 初期表示は非アニメーションで即座に確定させる。アニメーション中だと直後の自動現在地取得の
   // fitBoundsがLeafletに無視され、現在地へズームしないため
   fitToResults(false);
+  // shop= が指す店が実在すれば、通常のfitToResultsを上書きしてその店を中心にズームし直す
+  if (shopRestaurant) focusOnShop(shopRestaurant);
   $("loading").classList.add("done");
 
 }

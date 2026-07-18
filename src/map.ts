@@ -336,6 +336,8 @@ function renderPopupInto(
 export interface MarkerLayer {
   rebuild(restaurants: Restaurant[], f: FilterState): void;
   openFor(id: string): void;
+  /** openFor と違い視点を動かさない。呼び出し側が先に地図を自前でfitBounds等した後に使う */
+  openPopupOnly(id: string): void;
   clear(): void;
 }
 
@@ -396,6 +398,9 @@ export function createMarkerLayer(
       const target = marker.getLatLng();
       map.flyTo(target, Math.max(map.getZoom(), 15), { duration: 0.6 });
       marker.openPopup();
+    },
+    openPopupOnly(id: string): void {
+      byId.get(id)?.openPopup();
     },
     clear(): void {
       group.clearLayers();

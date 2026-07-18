@@ -317,9 +317,11 @@ function pageUrl(lang, areaSlug, awardSlug) {
   return `${SITE}/${lang}/${areaSlug}/${awardSlug ? awardSlug + "/" : ""}`;
 }
 
-function appLink(lang, areaId, awardSlug) {
+function appLink(lang, areaId, awardSlug, shopId) {
   const awards = awardSlug ? `&awards=${awardSlug}` : "&awards=bib-gourmand,3-stars,2-stars,1-star,selected";
-  return `/${lang}/?area=${areaId.toLowerCase()}${awards}`;
+  // shopId は店舗個別ページ限定。地図側でその店を中心に周辺ズームする一時パラメータ（?shop=）
+  const shop = shopId ? `&shop=${encodeURIComponent(shopId)}` : "";
+  return `/${lang}/?area=${areaId.toLowerCase()}${awards}${shop}`;
 }
 
 function renderPage({ lang, area, award, rs }) {
@@ -572,7 +574,7 @@ ${BEACON}
   } › ${esc(r.name)}</nav>
 <h1>${esc(r.name)} <span class="badge${inCurrent ? "" : " badge-muted"}">${esc(inCurrent ? awardLabel : s.rNotInGuide)}</span></h1>
 <p class="status">${esc(inCurrent ? s.rStatusCur(awardLabel) : s.rStatusPast(lastYear, awardLabel))}</p>
-<a class="cta" href="${esc(appLink(lang, r.area, null))}">${esc(s.rCta)}</a>
+<a class="cta" href="${esc(appLink(lang, r.area, null, r.id))}">${esc(s.rCta)}</a>
 <h2>${esc(s.rInfo)}</h2>
 <table>
 ${facts}
